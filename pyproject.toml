@@ -1,0 +1,24 @@
+[project]
+name = "finbench"
+version = "0.1.0"
+description = "Closed-book calibration benchmark for LLMs on SEC filing facts"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "tenacity>=8.2",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/finbench"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

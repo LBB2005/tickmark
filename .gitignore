@@ -4,7 +4,6 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-.python-version
 
 # Environment / secrets
 .env
@@ -13,10 +12,13 @@ venv/
 *.pem
 *.key
 
-# Data & notebooks
-data/
-*.csv
-*.parquet
+# Data
+# NOTE: data/ is NOT ignored wholesale. gold.jsonl, questions.jsonl, screen.csv
+# and the .sha256 hashes are the published deliverable of this benchmark and
+# MUST be committed. Only the re-fetchable cache and the bulky raw model
+# responses are excluded.
+data/cache/
+results/raw/
 .ipynb_checkpoints/
 
 # Tooling
