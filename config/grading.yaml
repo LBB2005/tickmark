@@ -1,0 +1,40 @@
+# FROZEN before any model was called. See git log for the commit timestamp.
+# Spec section 8.1 left the tolerance rule open (section 13); this is the
+# locked decision, committed before results/ contains a single file.
+version: 1
+
+numeric_tolerance:
+  # A model answering "$96.8 billion" against a gold value of 96,773,000,000
+  # is correct at the precision it stated. Grading it wrong would understate
+  # accuracy and inflate the headline confident-wrong rate.
+  rule: stated_precision
+  # Correct iff the gold value, rounded to the number of significant figures
+  # the MODEL stated, equals the model's value rounded the same way.
+  # The floor stops "about $100 billion" (1 s.f.) passing on a huge number.
+  relative_floor: 0.001
+  # Answers this far out in a power of 1000 are a scale error, not a wrong
+  # figure. Tracked as a separate class; never counted correct.
+  scale_error_factors: [1000, 1000000, 1000000000, 0.001, 0.000001]
+
+abstention:
+  # The JSON `abstain` field does most of the work. This fallback catches
+  # schema violations. Hand-check 100 classifications and report agreement.
+  fallback_phrases:
+    - "i don't have"
+    - "i do not have"
+    - "i'm not able to"
+    - "i am not able to"
+    - "cannot provide"
+    - "can't provide"
+    - "don't know"
+    - "do not know"
+    - "no reliable"
+    - "beyond my knowledge"
+    - "after my knowledge cutoff"
+    - "training data"
+    - "would need to check"
+    - "unable to verify"
+
+false_premise:
+  # Three-way, never binary (spec section 8.4).
+  outcomes: [fabricated, abstained, correctly_rejected]
