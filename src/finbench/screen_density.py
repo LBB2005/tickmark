@@ -15,38 +15,47 @@ import csv
 import pathlib
 from typing import Any
 
-from . import config, edgar, observations, restatements
+from . import config, dimensional, edgar, observations, restatements
 from .http import SecClient
 
-MIN_RESTATEMENTS = 3     # roles A, D - the restatement engine
-MIN_SEGMENT_MEMBERS = 4  # roles C, F, G - dimensional richness
+MIN_RESTATEMENTS = 3  # roles A, D - the restatement engine
+
+# Buried-but-knowable questions each role must supply, taken straight from the
+# spec's section 6.4 supply table ("C (4 ea), A (2 ea), F/D (2 ea), G (1 ea)").
+# The screen asks exactly one question - can this company supply its share? -
+# rather than applying a threshold picked to produce a pleasing answer.
+#
+# The measure is usable segment-revenue FACTS, not distinct segment members.
+# Amazon reports three segments and reports them every quarter; counting
+# members would call it thin while it can in fact supply many questions.
+MIN_SEGMENT_FACTS = {"C": 4, "F": 2, "G": 1}
 
 FIELDS = ["ticker", "cik", "name", "role", "n_concepts", "n_restatements",
-          "n_segment_members", "public_float", "verdict"]
+          "n_segment_members", "n_segment_facts", "public_float", "verdict"]
 
 
 def verdict(role: str, *, n_restatements: int,
-            n_segment_members: int | None) -> str:
-    """Role-aware keep/drop. n_segment_members=None means "not computed yet".
+            n_segment_facts: int | None) -> str:
+    """Role-aware keep/drop. n_segment_facts=None means "not computed yet".
 
-    Roles C/F/G are judged entirely on segment richness, so before the
-    dimensional source exists (Task 1.5) their verdict is PENDING, not THIN.
-    Writing THIN there would put 21 false negatives in screen.csv and would
-    look like a finding rather than an unfinished pipeline.
+    Roles C/F/G are judged entirely on segment supply, so before the
+    dimensional source exists their verdict is PENDING, not THIN. Writing THIN
+    there would put false negatives in screen.csv and would look like a
+    finding rather than an unfinished pipeline.
     """
     if role in ("A", "D"):
         return "KEEP" if n_restatements >= MIN_RESTATEMENTS else "THIN"
-    if role in ("C", "F", "G"):
-        if n_segment_members is None:
+    if role in MIN_SEGMENT_FACTS:
+        if n_segment_facts is None:
             return "PENDING"
-        return "KEEP" if n_segment_members >= MIN_SEGMENT_MEMBERS else "THIN"
+        return "KEEP" if n_segment_facts >= MIN_SEGMENT_FACTS[role] else "THIN"
     # B (short-history spin-offs) are wanted precisely because they are thin;
     # E (share structure) is judged on cover-page share classes, not here.
     return "KEEP"
 
 
 def score(*, ticker: str, cik: int, name: str, role: str, facts: dict,
-          segment_members: int | None) -> dict[str, Any]:
+          segment_members: int | None, segment_facts: int | None = None) -> dict[str, Any]:
     found = restatements.find(facts)
     concepts = {o.concept for o in observations.iter_observations(facts)}
     return {
@@ -57,15 +66,29 @@ def score(*, ticker: str, cik: int, name: str, role: str, facts: dict,
         "n_concepts": len(concepts),
         "n_restatements": len(found),
         "n_segment_members": segment_members,
+        "n_segment_facts": segment_facts,
         "public_float": observations.public_float(facts),
         "verdict": verdict(role, n_restatements=len(found),
-                           n_segment_members=segment_members),
+                           n_segment_facts=segment_facts),
     }
 
 
 def run(out_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
     config.load_dotenv()
     out_path = out_path or config.DATA_DIR / "screen.csv"
+    segments = dimensional.load_cached()
+    by_cik: dict[int, set[str]] = {}
+    facts_by_cik: dict[int, set[tuple]] = {}
+    for fact in segments:
+        if fact.concept not in dimensional.REVENUE_TAGS:
+            continue
+        if fact.axis == dimensional.SEGMENT_AXIS:
+            by_cik.setdefault(fact.cik, set()).add(fact.member)
+        # One distinct fact = one candidate question.
+        facts_by_cik.setdefault(fact.cik, set()).add(
+            (fact.axis, fact.member, fact.concept, fact.end, fact.qtrs))
+    if not segments:
+        print("WARNING: no segment cache; roles C/F/G will stay PENDING")
     rows: list[dict[str, Any]] = []
     with SecClient() as client:
         for entry in config.companies()["companies"]:
@@ -75,12 +98,16 @@ def run(out_path: pathlib.Path | None = None) -> list[dict[str, Any]]:
                 print(f"  {entry['ticker']:<6} FETCH FAILED: {exc}")
                 continue
             row = score(ticker=entry["ticker"], cik=entry["cik"], name=entry["name"],
-                        role=entry["role"], facts=facts, segment_members=None)
+                        role=entry["role"], facts=facts,
+                        segment_members=len(by_cik.get(entry["cik"], ()))
+                        if segments else None,
+                        segment_facts=len(facts_by_cik.get(entry["cik"], ()))
+                        if segments else None)
             rows.append(row)
-            float_str = f"{row['public_float']/1e9:>7.1f}B" if row["public_float"] else "      -"
             print(f"  {row['ticker']:<6} {row['role']:<3} "
                   f"restated={row['n_restatements']:<5} "
-                  f"concepts={row['n_concepts']:<5} float={float_str}  {row['verdict']}")
+                  f"seg={str(row['n_segment_members']):<3} "
+                  f"segfacts={str(row['n_segment_facts']):<5} {row['verdict']}")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="") as fh:

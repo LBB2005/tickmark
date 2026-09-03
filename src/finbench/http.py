@@ -110,6 +110,29 @@ class SecClient:
         """Uncached - for large zip archives the caller stores itself."""
         return self._get(url).content
 
+    @retry(
+        stop=stop_after_attempt(4),
+        wait=wait_exponential(multiplier=1, min=2, max=20),
+        retry=retry_if_exception(_is_retryable),
+        reraise=True,
+    )
+    def download_to(self, url: str, path: pathlib.Path) -> pathlib.Path:
+        """Stream a large file to disk.
+
+        get_bytes buffers the whole response in memory, which drops the
+        connection part-way through the biggest notes archives (>100MB).
+        Streaming in chunks survives them.
+        """
+        self._throttle(urlparse(url).netloc)
+        headers = {"User-Agent": user_agent()}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with self._client.stream("GET", url, headers=headers) as response:
+            response.raise_for_status()
+            with path.open("wb") as fh:
+                for chunk in response.iter_bytes(chunk_size=1 << 20):
+                    fh.write(chunk)
+        return path
+
     def close(self) -> None:
         self._client.close()
 

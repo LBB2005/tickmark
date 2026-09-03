@@ -48,3 +48,28 @@ def test_get_json_reads_from_cache_without_network(monkeypatch, tmp_path):
     monkeypatch.setattr(client._client, "get", explode)
     assert client.get_json(url) == {"cached": True}
     client.close()
+
+
+def test_download_to_streams_to_disk(monkeypatch, tmp_path):
+    monkeypatch.setenv("SEC_CONTACT_EMAIL", "a@b.com")
+    client = SecClient(cache_dir=None)
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def iter_bytes(self, chunk_size=None):
+            yield b"abc"
+            yield b"def"
+
+    class FakeStream:
+        def __enter__(self):
+            return FakeResponse()
+
+        def __exit__(self, *_):
+            return False
+
+    monkeypatch.setattr(client._client, "stream", lambda *a, **k: FakeStream())
+    out = client.download_to("https://x/y.zip", tmp_path / "sub" / "y.zip")
+    assert out.read_bytes() == b"abcdef"
+    client.close()

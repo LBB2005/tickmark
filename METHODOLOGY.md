@@ -101,6 +101,53 @@ universe collapse to 108 unambiguous ones. The strictness is the point.
 Geographic facts (`Geographical` axis) are kept alongside business segments and
 supply the `deep` difficulty tier.
 
+## Density screen outcome
+
+All 58 candidates were scored against live EDGAR before any question was
+written. **No company was swapped out.** The alternates list was not needed.
+
+The screen asks one question per company - can it supply the share of
+questions its role is assigned in the spec's section 6.4 supply table? - so
+the thresholds are the quotas themselves (C: 4, F: 2, G: 1 buried questions;
+A and D: 3 restatements) rather than numbers chosen to produce a comfortable
+answer.
+
+Richness is measured in usable segment-revenue **facts**, not distinct segment
+members. Amazon reports three segments and reports them every quarter;
+counting members alone would call it thin when it can in fact supply many
+questions.
+
+Confirmed:
+
+| Role | Companies | Result |
+|---|---|---|
+| A - recast-heavy parents | 16 | all keep; 60-438 usable restatements each |
+| B - short-history spin-offs | 5 | all keep; correctly thin by construction (GEV 0, VLTO 0, SOLV 1 restatements) |
+| C - multi-segment reporters | 11 | all keep |
+| D - financials | 4 | all keep |
+| E - share-structure complexity | 4 | all keep |
+| F - fiscal-calendar traps | 5 | all keep |
+| G - leverage / covenant | 5 | 3 keep, 2 flagged (see below) |
+
+Segment coverage: 5,931 usable revenue facts across 55 of 58 companies (4,330
+on the business-segment axis, 1,601 geographic, 1,504 of them annual). Against
+a buried-but-knowable quota of 99, the surplus is large.
+
+### The two flagged companies
+
+Charter (CHTR) and Community Health (CYH) return zero segment facts. This is a
+fact about them, not a pipeline failure: both operate as effectively
+single-segment businesses. They are **kept**, because their assigned role is
+covenant and restatement questions (CHTR has 40 usable restatements, CYH 53),
+and the screen does not measure covenant supply at all. The two
+buried-but-knowable questions they would have contributed are drawn from the
+surplus elsewhere.
+
+Truist (TFC) also returns zero segment facts, which is expected and not a
+defect: the financials scoping decision above bars segment-revenue extraction
+for role D entirely. Role D's buried-question quota is met with share-count and
+cover-page questions sourced from `companyfacts`.
+
 ## Verification
 
 <!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the

@@ -11,12 +11,19 @@ instance documents; the notes data sets make it a table join instead:
 
 Two filters decide what is usable as a question:
 
-  * SINGLE-AXIS ONLY. A row dimensioned on BusinessSegments *and*
-    ProductOrService is a product line inside a segment, not the segment. Both
-    answer "what was the X segment's revenue" differently, which is exactly
-    the genuine-ambiguity failure mode the adversarial review is meant to
-    catch (spec section 6.5). Measured on 2026_07: 2,349 segment-revenue rows
-    collapse to 108 unambiguous ones.
+  * NO DISAGGREGATION BELOW THE AXIS BEING ASKED ABOUT. A row dimensioned on
+    BusinessSegments *and* ProductOrService is a product line inside a
+    segment, not the segment; both would answer "what was the X segment's
+    revenue" differently, which is the genuine-ambiguity failure mode the
+    adversarial review exists to catch (spec section 6.5).
+
+    Not every companion axis disaggregates, though. ConsolidationItems=
+    OperatingSegments is a QUALIFIER meaning "this row is the operating
+    segment total" - the most standard way to tag segment revenue. Rejecting
+    it as ambiguous throws away most of the usable data (measured on 2026_07:
+    494 of 602 clean rows). Other members of that axis - IntersegmentElimination,
+    CorporateNonSegment, MaterialReconcilingItems - ARE reconciliation rows
+    rather than segment revenue, so the allowance is member-specific.
   * NO COREG. A co-registrant row reports a subsidiary's books, not the
     parent's.
 """
@@ -40,6 +47,13 @@ SEGMENT_AXIS = "BusinessSegments"
 GEOGRAPHIC_AXIS = "Geographical"
 SCORED_FORMS = ("10-K", "10-Q")
 
+# Companion axes that qualify a fact without disaggregating it, and the only
+# members of each that are safe. Anything else present alongside the axis being
+# asked about makes the fact a sub-split and therefore an ambiguous question.
+BENIGN_COMPANIONS: dict[str, frozenset[str]] = {
+    "ConsolidationItems": frozenset({"OperatingSegments"}),
+}
+
 REVENUE_TAGS = frozenset({
     "Revenues",
     "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -48,6 +62,9 @@ REVENUE_TAGS = frozenset({
 SEGMENT_TAGS = REVENUE_TAGS | frozenset({"OperatingIncomeLoss"})
 
 CACHE_DIR = config.DATA_DIR / "cache" / "segments"
+# Archives are kept: re-deriving facts after a rule change must not mean
+# re-downloading 1.4GB from SEC.
+ARCHIVE_DIR = config.DATA_DIR / "cache" / "notes_archives"
 
 
 @dataclass(frozen=True)
@@ -103,6 +120,20 @@ def humanise_member(label: str | None, member: str) -> str:
     return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name).strip()
 
 
+def usable_member(parsed: dict[str, str], primary_axis: str) -> str | None:
+    """Return the member on primary_axis if the fact is unambiguous, else None."""
+    member = parsed.get(primary_axis)
+    if member is None:
+        return None
+    for axis, value in parsed.items():
+        if axis == primary_axis:
+            continue
+        allowed = BENIGN_COMPANIONS.get(axis)
+        if allowed is None or value not in allowed:
+            return None
+    return member
+
+
 def _start_for(end: str, qtrs: int) -> str | None:
     if qtrs == 0:
         return None
@@ -141,15 +172,15 @@ def extract(
     if not subs:
         return []
 
-    # Single-axis only: dimh -> (axis, member).
+    # dimh -> (axis, member), keeping only unambiguous facts.
     dims: dict[str, tuple[str, str]] = {}
     for row in rows("dim.tsv"):
         parsed = parse_segments(row["segments"])
-        if len(parsed) != 1:
-            continue
-        axis, member = next(iter(parsed.items()))
-        if axis in axes:
-            dims[row["dimhash"]] = (axis, member)
+        for axis in axes:
+            member = usable_member(parsed, axis)
+            if member is not None:
+                dims[row["dimhash"]] = (axis, member)
+                break
 
     labels: dict[str, str] = {}
     wanted_members = {m for _, m in dims.values()}
@@ -200,6 +231,7 @@ def recent_months(count: int, today: dt.date | None = None) -> list[str]:
 def build_cache(months: list[str], ciks: set[int]) -> int:
     """Download each month, keep only our companies' rows, drop the 108MB zip."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     total = 0
     with SecClient() as client:
         for month in months:
@@ -209,17 +241,15 @@ def build_cache(months: list[str], ciks: set[int]) -> int:
                 print(f"  {month}  cached")
                 continue
             url = NOTES_URL.format(month=month)
-            tmp = CACHE_DIR / f"{month}.zip.part"
-            try:
-                tmp.write_bytes(client.get_bytes(url))
-            except Exception as exc:  # noqa: BLE001
-                print(f"  {month}  SKIP ({type(exc).__name__})")
-                tmp.unlink(missing_ok=True)
-                continue
-            try:
-                facts = extract(tmp, ciks)
-            finally:
-                tmp.unlink(missing_ok=True)
+            archive = ARCHIVE_DIR / f"{month}_notes.zip"
+            if not archive.exists():
+                try:
+                    client.download_to(url, archive)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  {month}  SKIP ({type(exc).__name__})")
+                    archive.unlink(missing_ok=True)
+                    continue
+            facts = extract(archive, ciks)
             with out.open("w", encoding="utf-8") as fh:
                 for fact in facts:
                     fh.write(json.dumps(asdict(fact)) + "\n")

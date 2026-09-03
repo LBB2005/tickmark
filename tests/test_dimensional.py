@@ -48,3 +48,37 @@ def test_period_label_reads_like_a_question():
 def test_recent_months_starts_one_month_back_and_wraps_year():
     assert dimensional.recent_months(3, dt.date(2026, 2, 15)) == ["2026_01", "2025_12", "2025_11"]
     assert dimensional.recent_months(2, dt.date(2026, 9, 2)) == ["2026_08", "2026_07"]
+
+
+def test_operating_segments_qualifier_is_not_ambiguity():
+    # ConsolidationItems=OperatingSegments means "this row IS the segment".
+    parsed = {"BusinessSegments": "MedTech", "ConsolidationItems": "OperatingSegments"}
+    assert dimensional.usable_member(parsed, "BusinessSegments") == "MedTech"
+
+
+def test_reconciliation_rows_are_rejected():
+    for bad in ("IntersegmentElimination", "CorporateNonSegment", "MaterialReconcilingItems"):
+        parsed = {"BusinessSegments": "MedTech", "ConsolidationItems": bad}
+        assert dimensional.usable_member(parsed, "BusinessSegments") is None
+
+
+def test_product_split_within_a_segment_is_rejected():
+    parsed = {"BusinessSegments": "MedTech", "ConsolidationItems": "OperatingSegments",
+              "ProductOrService": "Surgery"}
+    assert dimensional.usable_member(parsed, "BusinessSegments") is None
+
+
+def test_geographic_split_within_a_segment_is_rejected():
+    parsed = {"BusinessSegments": "MedTech", "Geographical": "US"}
+    assert dimensional.usable_member(parsed, "BusinessSegments") is None
+    # ...and the same fact is not usable as a pure geographic fact either.
+    assert dimensional.usable_member(parsed, "Geographical") is None
+
+
+def test_pure_axis_with_no_companions_is_usable():
+    assert dimensional.usable_member({"BusinessSegments": "Aviation"}, "BusinessSegments") == "Aviation"
+    assert dimensional.usable_member({"Geographical": "Americas"}, "Geographical") == "Americas"
+
+
+def test_missing_axis_returns_none():
+    assert dimensional.usable_member({"Geographical": "US"}, "BusinessSegments") is None
