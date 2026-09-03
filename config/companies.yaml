@@ -1,0 +1,296 @@
+version: 1
+companies:
+- ticker: GE
+  role: A
+  role_label: recast-heavy parent
+  cik: 40545
+  name: GENERAL ELECTRIC CO
+- ticker: MMM
+  role: A
+  role_label: recast-heavy parent
+  cik: 66740
+  name: 3M CO
+- ticker: DHR
+  role: A
+  role_label: recast-heavy parent
+  cik: 313616
+  name: DANAHER CORP /DE/
+- ticker: JNJ
+  role: A
+  role_label: recast-heavy parent
+  cik: 200406
+  name: JOHNSON & JOHNSON
+- ticker: K
+  role: A
+  role_label: recast-heavy parent
+  cik: 55067
+  name: KELLANOVA
+  ticker_note: acquired by Mars; delisted, history intact
+- ticker: DD
+  role: A
+  role_label: recast-heavy parent
+  cik: 1666700
+  name: DuPont de Nemours, Inc.
+- ticker: BAX
+  role: A
+  role_label: recast-heavy parent
+  cik: 10456
+  name: BAXTER INTERNATIONAL INC
+- ticker: FTV
+  role: A
+  role_label: recast-heavy parent
+  cik: 1659166
+  name: Fortive Corp
+- ticker: EXC
+  role: A
+  role_label: recast-heavy parent
+  cik: 1109357
+  name: EXELON CORP
+- ticker: LH
+  role: A
+  role_label: recast-heavy parent
+  cik: 920148
+  name: LABCORP HOLDINGS INC.
+- ticker: IBM
+  role: A
+  role_label: recast-heavy parent
+  cik: 51143
+  name: INTERNATIONAL BUSINESS MACHINES CORP
+- ticker: WDC
+  role: A
+  role_label: recast-heavy parent
+  cik: 106040
+  name: WESTERN DIGITAL CORP
+- ticker: BDX
+  role: A
+  role_label: recast-heavy parent
+  cik: 10795
+  name: BECTON DICKINSON & CO
+- ticker: ELAN
+  role: A
+  role_label: recast-heavy parent
+  cik: 1739104
+  name: Elanco Animal Health Inc
+- ticker: CXT
+  role: A
+  role_label: recast-heavy parent
+  cik: 25445
+  name: Crane NXT, Co.
+- ticker: HON
+  role: A
+  role_label: recast-heavy parent
+  cik: 773840
+  name: HONEYWELL INTERNATIONAL INC
+- ticker: GEV
+  role: B
+  role_label: short-history spin-off
+  cik: 1996810
+  name: GE Vernova Inc.
+- ticker: SOLV
+  role: B
+  role_label: short-history spin-off
+  cik: 1964738
+  name: Solventum Corp
+- ticker: VLTO
+  role: B
+  role_label: short-history spin-off
+  cik: 1967680
+  name: Veralto Corp
+- ticker: KVUE
+  role: B
+  role_label: short-history spin-off
+  cik: 1944048
+  name: Kenvue Inc.
+- ticker: KLG
+  role: B
+  role_label: short-history spin-off
+  cik: 1959348
+  name: WK Kellogg Co
+  ticker_note: acquired by Ferrero; delisted, history intact
+- ticker: INTC
+  role: C
+  role_label: multi-segment reporter
+  cik: 50863
+  name: INTEL CORP
+- ticker: AMZN
+  role: C
+  role_label: multi-segment reporter
+  cik: 1018724
+  name: AMAZON COM INC
+- ticker: DIS
+  role: C
+  role_label: multi-segment reporter
+  cik: 1744489
+  name: Walt Disney Co
+- ticker: CRM
+  role: C
+  role_label: multi-segment reporter
+  cik: 1108524
+  name: Salesforce, Inc.
+- ticker: CMCSA
+  role: C
+  role_label: multi-segment reporter
+  cik: 1166691
+  name: COMCAST CORP
+- ticker: WBD
+  role: C
+  role_label: multi-segment reporter
+  cik: 1437107
+  name: Warner Bros. Discovery, Inc.
+- ticker: EMR
+  role: C
+  role_label: multi-segment reporter
+  cik: 32604
+  name: EMERSON ELECTRIC CO
+- ticker: TXT
+  role: C
+  role_label: multi-segment reporter
+  cik: 217346
+  name: TEXTRON INC
+- ticker: PSX
+  role: C
+  role_label: multi-segment reporter
+  cik: 1534701
+  name: Phillips 66
+- ticker: MCK
+  role: C
+  role_label: multi-segment reporter
+  cik: 927653
+  name: MCKESSON CORP
+- ticker: UNH
+  role: C
+  role_label: multi-segment reporter
+  cik: 731766
+  name: UNITEDHEALTH GROUP INC
+- ticker: BRK.B
+  role: D
+  role_label: financial (restricted roles)
+  cik: 1067983
+  name: BERKSHIRE HATHAWAY INC
+- ticker: AIG
+  role: D
+  role_label: financial (restricted roles)
+  cik: 5272
+  name: AMERICAN INTERNATIONAL GROUP, INC.
+- ticker: COF
+  role: D
+  role_label: financial (restricted roles)
+  cik: 927628
+  name: CAPITAL ONE FINANCIAL CORP
+- ticker: TFC
+  role: D
+  role_label: financial (restricted roles)
+  cik: 92230
+  name: TRUIST FINANCIAL CORP
+- ticker: GOOGL
+  role: E
+  role_label: share-structure complexity
+  cik: 1652044
+  name: Alphabet Inc.
+- ticker: FOXA
+  role: E
+  role_label: share-structure complexity
+  cik: 1754301
+  name: Fox Corp
+- ticker: NWSA
+  role: E
+  role_label: share-structure complexity
+  cik: 1564708
+  name: NEWS CORP
+- ticker: LBRDA
+  role: E
+  role_label: share-structure complexity
+  cik: 1611983
+  name: Liberty Broadband Corp
+  ticker_note: merged into Charter; 4 share classes LBRDA/B/K/P
+- ticker: NKE
+  role: F
+  role_label: fiscal-calendar trap
+  cik: 320187
+  name: NIKE, Inc.
+- ticker: ORCL
+  role: F
+  role_label: fiscal-calendar trap
+  cik: 1341439
+  name: ORACLE CORP
+- ticker: COST
+  role: F
+  role_label: fiscal-calendar trap
+  cik: 909832
+  name: COSTCO WHOLESALE CORP /NEW
+- ticker: DE
+  role: F
+  role_label: fiscal-calendar trap
+  cik: 315189
+  name: DEERE & CO
+- ticker: AVGO
+  role: F
+  role_label: fiscal-calendar trap
+  cik: 1730168
+  name: Broadcom Inc.
+- ticker: CHTR
+  role: G
+  role_label: leverage / covenant
+  cik: 1091667
+  name: CHARTER COMMUNICATIONS, INC. /MO/
+- ticker: SATS
+  role: G
+  role_label: leverage / covenant
+  cik: 1415404
+  name: EchoStar CORP
+  ticker_note: ticker changed SATS -> ECHO
+- ticker: CCL
+  role: G
+  role_label: leverage / covenant
+  cik: 815097
+  name: Carnival Corp Ltd.
+- ticker: CYH
+  role: G
+  role_label: leverage / covenant
+  cik: 1108109
+  name: COMMUNITY HEALTH SYSTEMS INC
+- ticker: CVNA
+  role: G
+  role_label: leverage / covenant
+  cik: 1690820
+  name: CARVANA CO.
+- ticker: MU
+  role: ALT
+  role_label: alternate
+  cik: 723125
+  name: MICRON TECHNOLOGY INC
+- ticker: CSCO
+  role: ALT
+  role_label: alternate
+  cik: 858877
+  name: CISCO SYSTEMS, INC.
+- ticker: FDX
+  role: ALT
+  role_label: alternate
+  cik: 1048911
+  name: FEDEX CORP
+- ticker: JBL
+  role: ALT
+  role_label: alternate
+  cik: 898293
+  name: JABIL INC
+- ticker: NDSN
+  role: ALT
+  role_label: alternate
+  cik: 72331
+  name: NORDSON CORP
+- ticker: SYY
+  role: ALT
+  role_label: alternate
+  cik: 96021
+  name: SYSCO CORP
+- ticker: UAA
+  role: ALT
+  role_label: alternate
+  cik: 1336917
+  name: Under Armour, Inc.
+- ticker: BHC
+  role: ALT
+  role_label: alternate
+  cik: 885590
+  name: Bausch Health Companies Inc.
