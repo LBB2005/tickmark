@@ -65,6 +65,42 @@ page) and used at analysis time, not as a tier split or a filter.
 
 <!-- Filled in at Task 1.5 after the timeboxed spike. -->
 
+## Segment data source
+
+`companyfacts` returns non-dimensional facts only, so segment revenue needs a
+separate source. The spec budgeted a day for parsing raw XBRL instance
+documents. A timeboxed spike found a cheaper path and it was taken.
+
+**Chosen: SEC Financial Statement *and Notes* Data Sets**, published monthly at
+`https://www.sec.gov/files/dera/data/financial-statement-notes-data-sets/{YYYY_MM}_notes.zip`.
+Segment facts come out of a table join rather than XML parsing:
+
+    num.tsv (adsh, tag, ddate, qtrs, uom, dimh, value, coreg)
+      -> dim.tsv (dimhash -> segments string)
+      -> sub.tsv (adsh -> cik, form, filed)
+      -> tag.tsv (tag -> tlabel, human-readable member names)
+
+Two details cost time and are recorded so nobody repeats them. The datasets
+switched from quarterly (`2025q2_notes.zip`) to monthly (`2026_07_notes.zip`)
+filenames. And `dim.tsv` stores axis names with the `Statement` prefix and
+`Axis` suffix stripped, so `us-gaap:StatementBusinessSegmentsAxis` appears as
+`BusinessSegments`; searching for the full tag name returns nothing.
+
+### The single-axis rule
+
+Only facts dimensioned on **exactly one** axis are used. A row dimensioned on
+`BusinessSegments` *and* `ProductOrService` is a product line inside a segment,
+not the segment: both would answer "what was the X segment's revenue"
+differently, which is the genuine-ambiguity failure mode the adversarial review
+exists to catch. Rows carrying a `coreg` value are also dropped, since those
+report a co-registrant subsidiary's books rather than the parent's.
+
+Measured on the 2026_07 file: 2,349 raw segment-revenue rows for the candidate
+universe collapse to 108 unambiguous ones. The strictness is the point.
+
+Geographic facts (`Geographical` axis) are kept alongside business segments and
+supply the `deep` difficulty tier.
+
 ## Verification
 
 <!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the
