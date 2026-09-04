@@ -18,7 +18,7 @@ from typing import Any
 from . import config, dimensional, edgar, observations, restatements
 from .http import SecClient
 
-MIN_RESTATEMENTS = 3  # roles A, D - the restatement engine
+MIN_RESTATEMENTS = 3  # roles A, D, G - judged on restatement supply
 
 # Buried-but-knowable questions each role must supply, taken straight from the
 # spec's section 6.4 supply table ("C (4 ea), A (2 ea), F/D (2 ea), G (1 ea)").
@@ -28,7 +28,7 @@ MIN_RESTATEMENTS = 3  # roles A, D - the restatement engine
 # The measure is usable segment-revenue FACTS, not distinct segment members.
 # Amazon reports three segments and reports them every quarter; counting
 # members would call it thin while it can in fact supply many questions.
-MIN_SEGMENT_FACTS = {"C": 4, "F": 2, "G": 1}
+MIN_SEGMENT_FACTS = {"C": 4, "F": 2}
 
 FIELDS = ["ticker", "cik", "name", "role", "n_concepts", "n_restatements",
           "n_segment_members", "n_segment_facts", "public_float", "verdict"]
@@ -38,12 +38,18 @@ def verdict(role: str, *, n_restatements: int,
             n_segment_facts: int | None) -> str:
     """Role-aware keep/drop. n_segment_facts=None means "not computed yet".
 
-    Roles C/F/G are judged entirely on segment supply, so before the
+    Roles C/F are judged entirely on segment supply, so before the
     dimensional source exists their verdict is PENDING, not THIN. Writing THIN
     there would put false negatives in screen.csv and would look like a
     finding rather than an unfinished pipeline.
     """
-    if role in ("A", "D"):
+    # Role G (leverage/covenant) is judged on restatements, NOT segments. Its
+    # questions come from covenant prose and credit agreements, sourced
+    # manually, which this screen cannot measure at all. Charter and Community
+    # Health report as near-single-segment - a true fact about them, not a data
+    # gap - so scoring them on segment richness tested something the role was
+    # never there to supply.
+    if role in ("A", "D", "G"):
         return "KEEP" if n_restatements >= MIN_RESTATEMENTS else "THIN"
     if role in MIN_SEGMENT_FACTS:
         if n_segment_facts is None:

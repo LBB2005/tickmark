@@ -1,0 +1,131 @@
+# Roster pinned from OpenRouter's live catalogue on 2026-09-02 (426 models).
+# Never edited from memory: spec section 7.3. Re-run scripts/preflight_models.py
+# before any run and re-pin if a slug has moved.
+version: 1
+pinned_on: "2026-09-02"
+
+defaults:
+  temperature: 0
+  max_tokens: 700
+
+routing:
+  # Substitution across providers is a different measurement wearing the same
+  # label, so fallbacks are off and a resolved/requested mismatch quarantines
+  # the call instead of scoring it.
+  allow_fallbacks: false
+  require_parameters: true
+
+# Per-model quirks are MEASURED, not assumed - carried over from the AEO
+# Portfolio Index probe, which paid for these findings already:
+#   send_temperature - Anthropic and OpenAI reject the param on their native
+#                      endpoints, and require_parameters turns that into a 404.
+#   reasoning        - Google and xAI make reasoning mandatory and need a token
+#                      budget big enough to reason AND answer; Anthropic and
+#                      OpenAI can switch it off entirely.
+#   native_search    - Perplexity retrieves natively.
+models:
+  - id: gpt-5.6-sol
+    slot: 1
+    role: flagship
+    lab: OpenAI
+    slug: openai/gpt-5.6-sol
+    provider_tags: [openai]
+    provider_names: [OpenAI]
+    send_temperature: false
+    reasoning: {enabled: false}
+    native_search: false
+    price_in_per_mtok: 2.00
+    price_out_per_mtok: 10.00
+    stated_cutoff: null      # filled by the cutoff-elicitation probe, sec 7.4
+
+  - id: claude-opus-5
+    slot: 2
+    role: flagship
+    lab: Anthropic
+    slug: anthropic/claude-opus-5
+    provider_tags: [anthropic]
+    provider_names: [Anthropic]
+    send_temperature: false
+    reasoning: {enabled: false}
+    native_search: false
+    price_in_per_mtok: 5.00
+    price_out_per_mtok: 25.00
+    stated_cutoff: null
+
+  # PREVIEW endpoint: Google can update it silently. Section 7.3's requirement
+  # to record the resolved model string and run date on every row is the
+  # mitigation; if it resolves to something else the call is quarantined.
+  - id: gemini-3.1-pro
+    slot: 3
+    role: flagship
+    lab: Google
+    slug: google/gemini-3.1-pro-preview
+    provider_tags: [google-vertex/global]
+    provider_names: [Google]
+    send_temperature: true
+    reasoning: {effort: minimal}
+    native_search: false
+    price_in_per_mtok: 2.00
+    price_out_per_mtok: 12.00
+    stated_cutoff: null
+
+  - id: grok-4.6
+    slot: 4
+    role: flagship
+    lab: xAI
+    slug: x-ai/grok-4.6
+    provider_tags: [xai]
+    provider_names: [xAI]
+    send_temperature: true
+    reasoning: {effort: minimal}
+    native_search: false
+    price_in_per_mtok: 2.00
+    price_out_per_mtok: 6.00
+    stated_cutoff: null
+
+  # SLOT 5 - the cheap tier of slot 1's OWN generation (5.6). Same generation
+  # matters: pairing a cheap model against a flagship from a different vintage
+  # would confound model size with model age and make the comparison
+  # unreadable (spec 7.1). 10x cheaper on input, same family, same day.
+  - id: gpt-5.6-luna
+    slot: 5
+    role: cheap_tier
+    lab: OpenAI
+    pairs_with: gpt-5.6-sol
+    slug: openai/gpt-5.6-luna
+    provider_tags: [openai]
+    provider_names: [OpenAI]
+    send_temperature: false
+    reasoning: {enabled: false}
+    native_search: false
+    price_in_per_mtok: 0.20
+    price_out_per_mtok: 1.20
+    stated_cutoff: null
+
+# Reported in its OWN row, clearly marked retrieval-augmented. Including it in
+# the closed-book column would measure "has a search engine", not recall.
+reference_line:
+  - id: sonar-pro
+    role: retrieval_reference
+    lab: Perplexity
+    slug: perplexity/sonar-pro
+    provider_tags: [perplexity]
+    provider_names: [Perplexity]
+    send_temperature: true
+    reasoning: null          # rejects the param -> 404 under require_parameters
+    native_search: true
+    price_in_per_mtok: 3.00
+    price_out_per_mtok: 15.00
+    stated_cutoff: null
+
+# Section 7.7. Run on Anthropic deliberately: the tier pair is OpenAI, so the
+# two experiments sit in different families and cannot confound each other.
+reasoning_toggle:
+  model_id: claude-opus-5
+  subset_size: 60
+  on: {enabled: true}
+  off: {enabled: false}
+
+sampling:
+  samples_per_question: 3
+  temperature: 0

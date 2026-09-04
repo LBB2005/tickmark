@@ -86,17 +86,27 @@ filenames. And `dim.tsv` stores axis names with the `Statement` prefix and
 `Axis` suffix stripped, so `us-gaap:StatementBusinessSegmentsAxis` appears as
 `BusinessSegments`; searching for the full tag name returns nothing.
 
-### The single-axis rule
+### The disaggregation rule
 
-Only facts dimensioned on **exactly one** axis are used. A row dimensioned on
-`BusinessSegments` *and* `ProductOrService` is a product line inside a segment,
-not the segment: both would answer "what was the X segment's revenue"
-differently, which is the genuine-ambiguity failure mode the adversarial review
-exists to catch. Rows carrying a `coreg` value are also dropped, since those
-report a co-registrant subsidiary's books rather than the parent's.
+A fact is used only when nothing disaggregates it below the axis being asked
+about. A row dimensioned on `BusinessSegments` *and* `ProductOrService` is a
+product line inside a segment, not the segment: both would answer "what was the
+X segment's revenue" differently, which is the genuine-ambiguity failure mode
+the adversarial review exists to catch. Rows carrying a `coreg` value are
+dropped too, since those report a co-registrant subsidiary's books.
 
-Measured on the 2026_07 file: 2,349 raw segment-revenue rows for the candidate
-universe collapse to 108 unambiguous ones. The strictness is the point.
+Not every companion axis disaggregates, and an early version of this rule got
+that wrong. `ConsolidationItems=OperatingSegments` is a *qualifier* meaning
+"this row is the operating-segment total" - the single most common way segment
+revenue is tagged. Rejecting it as ambiguous discarded most of the usable data:
+on the 2026_07 file it cut 602 clean rows to 108, and across the corpus it cost
+7,486 facts down to 2,624. Other members of that same axis
+(`IntersegmentElimination`, `CorporateNonSegment`, `MaterialReconcilingItems`)
+genuinely are reconciliation rows rather than segment revenue, so the allowance
+is member-specific rather than axis-wide.
+
+Final corpus: **7,486 segment and geographic facts** across 13 monthly notes
+datasets (2025_07 through 2026_07; 2025_06 and 2026_08 are not published).
 
 Geographic facts (`Geographical` axis) are kept alongside business segments and
 supply the `deep` difficulty tier.
@@ -147,6 +157,63 @@ Truist (TFC) also returns zero segment facts, which is expected and not a
 defect: the financials scoping decision above bars segment-revenue extraction
 for role D entirely. Role D's buried-question quota is met with share-count and
 cover-page questions sourced from `companyfacts`.
+
+## Density screen results
+
+All 58 candidates (50 primaries + 8 alternates) were scored against live EDGAR.
+**No company failed the screen**, so the universe is the 50 as specified and the
+8 alternates remain an unused bench.
+
+The role hypotheses in the spec held up:
+
+- **Role A (recast-heavy parents), 16/16 keep.** 60-438 usable restatements
+  each. The restatement engine works as designed.
+- **Role B (short-history spin-offs), 5/5 keep.** Correctly thin by
+  construction - GE Vernova and Veralto have zero restatements, Solventum one.
+  That is what they are in the universe to provide.
+- **Roles C and F** are judged on segment supply, **roles A, D and G** on
+  restatement supply, and **roles B and E** are always kept. The verdict is
+  role-aware because one global threshold keeps the wrong companies: a
+  recast-heavy parent with rich segments but no restatements is useless to the
+  restatement track, and vice versa.
+
+### Why role G is not judged on segments
+
+Role G (leverage/covenant) was initially scored on segment richness, which
+flagged Charter and Community Health as thin. That was the screen testing
+something the role was never there to supply: role G's questions come from
+covenant prose and Exhibit 10 credit agreements, sourced manually, which this
+screen cannot measure at all. Charter and Community Health report as
+near-single-segment, which is a true fact about those companies rather than a
+data gap. Role G is therefore judged on restatement supply, where both clear
+the threshold comfortably (Charter 40, Community Health 53).
+
+## Model roster
+
+Pinned on 2026-09-02 from OpenRouter's live catalogue (426 models), never from
+memory. See `config/models.yaml`; re-run `scripts/preflight_models.py` before
+any run.
+
+| Slot | Role | Model | $/Mtok in/out |
+|---|---|---|---|
+| 1 | Flagship | `openai/gpt-5.6-sol` | 2.00 / 10.00 |
+| 2 | Flagship | `anthropic/claude-opus-5` | 5.00 / 25.00 |
+| 3 | Flagship | `google/gemini-3.1-pro-preview` | 2.00 / 12.00 |
+| 4 | Flagship | `x-ai/grok-4.6` | 2.00 / 6.00 |
+| 5 | Cheap tier | `openai/gpt-5.6-luna` | 0.20 / 1.20 |
+| ref | Retrieval | `perplexity/sonar-pro` | 3.00 / 15.00 |
+
+Slot 5 pairs against slot 1 within the **same generation** (5.6), at 10x lower
+input cost. A cheap model paired against a flagship of a different vintage
+would confound model size with model age and make the tier comparison
+unreadable.
+
+The reasoning-toggle subset runs on `claude-opus-5` - deliberately a different
+family from the tier pair, so the two experiments cannot confound each other.
+
+Google's slot is a `-preview` endpoint, which the lab can update silently. The
+mitigation is the harness recording the resolved model string on every row and
+quarantining any call whose resolved model differs from the requested one.
 
 ## Verification
 

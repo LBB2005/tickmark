@@ -35,11 +35,16 @@ def test_verdict_is_role_aware():
 
 
 def test_thresholds_follow_the_spec_supply_table():
-    # C must supply 4 buried questions, F 2, G 1.
+    # C must supply 4 buried questions, F 2. G is not segment-judged at all.
     assert screen_density.verdict("C", n_restatements=0, n_segment_facts=4) == "KEEP"
     assert screen_density.verdict("C", n_restatements=0, n_segment_facts=3) == "THIN"
     assert screen_density.verdict("F", n_restatements=0, n_segment_facts=2) == "KEEP"
-    assert screen_density.verdict("G", n_restatements=0, n_segment_facts=1) == "KEEP"
+    assert screen_density.verdict("F", n_restatements=0, n_segment_facts=1) == "THIN"
+
+
+def test_covenant_role_never_pends_on_missing_segment_data():
+    # G resolves from restatements alone, so it is decided even with no cache.
+    assert screen_density.verdict("G", n_restatements=40, n_segment_facts=None) == "KEEP"
 
 
 def test_segment_roles_are_pending_before_dimensional_data_exists():
@@ -49,6 +54,13 @@ def test_segment_roles_are_pending_before_dimensional_data_exists():
     assert screen_density.verdict("F", n_restatements=0, n_segment_facts=None) == "PENDING"
     # Roles judged on restatements are unaffected by missing segment data.
     assert screen_density.verdict("A", n_restatements=9, n_segment_facts=None) == "KEEP"
+
+
+def test_covenant_role_is_judged_on_restatements_not_segments():
+    # Role G supplies covenant questions from prose; segment richness is
+    # irrelevant to it and must not be able to drop the company.
+    assert screen_density.verdict("G", n_restatements=40, n_segment_facts=0) == "KEEP"
+    assert screen_density.verdict("G", n_restatements=0, n_segment_facts=99) == "THIN"
 
 
 def test_short_history_spinoffs_are_never_thin():
