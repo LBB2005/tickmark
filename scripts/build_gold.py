@@ -34,6 +34,21 @@ RESTATEMENTS_PER_ROLE = {"A": 3, "C": 2, "D": 2}
 POST_CUTOFF_MAX_AGE_DAYS = 300
 BURIED_TARGET = {"headline": 20, "mid": 50, "deep": 30}
 
+# Spec 7.4 requires scoring the post-cutoff bucket against EACH model's own
+# boundary. That machinery only does anything if some questions land on
+# different sides for different models. Taking only each company's newest
+# filing put all 48 records 8-25 months past every model's stated cutoff, with
+# 37 of 48 in a single month - valid, but every one of them "obviously recent",
+# which is precisely the case spec 7.4 predicts models handle correctly.
+#
+# These boundary records span the window that the measured stated cutoffs
+# actually fall in (2024-06 for gpt-5.6, 2025-01 for opus-5 and gemini-3.1,
+# 2024-10 for grok-4.6), so a given record is post-cutoff for some models and
+# answerable for others. They carry the TRUE value; the harness decides per
+# model which behaviour is correct.
+BOUNDARY_WINDOW = ("2024-01-01", "2026-03-31")
+BOUNDARY_PER_COMPANY = 2
+
 
 def source_url(cik: int, accession: str) -> str:
     return (f"https://www.sec.gov/Archives/edgar/data/{cik}/"
@@ -215,6 +230,54 @@ def build_post_cutoff(universe, submissions) -> list[dict]:
     return out
 
 
+def build_cutoff_boundary(universe, facts_by_cik, submissions) -> list[dict]:
+    """Post-cutoff records that straddle the models' stated cutoffs."""
+    low, high = BOUNDARY_WINDOW
+    out = []
+    for entry in universe:
+        cik = int(entry["cik"])
+        facts = facts_by_cik.get(cik)
+        rows = submissions.get(cik)
+        if not facts or not rows:
+            continue
+        by_accession = {r[3]: r for r in rows}
+
+        # Latest-filed value per period, so the figure is the current one.
+        candidates: dict[tuple, Any] = {}
+        for obs in observations.iter_observations(facts):
+            if obs.concept not in ("Revenues",
+                                   "RevenueFromContractWithCustomerExcludingAssessedTax"):
+                continue
+            if obs.form not in ("10-K", "10-Q") or obs.unit != "USD":
+                continue
+            if obs.start is None or not (low <= obs.end <= high):
+                continue
+            if obs.accn not in by_accession:
+                continue
+            key = (obs.start, obs.end)
+            if key not in candidates or obs.filed > candidates[key].filed:
+                candidates[key] = obs
+        if not candidates:
+            continue
+
+        # Spread the picks across the window rather than clustering.
+        chosen = sorted(candidates.values(), key=lambda o: o.end)
+        step = max(1, len(chosen) // BOUNDARY_PER_COMPANY)
+        picks = chosen[::step][:BOUNDARY_PER_COMPANY]
+        for obs in picks:
+            form, report_date, filing_date, accession = by_accession[obs.accn]
+            out.append(base_record(
+                question_id=f"pcb-{entry['ticker']}-{obs.end}",
+                company=entry["name"], cik=cik,
+                fiscal_period=periods.phrase_for_form(form, obs.end),
+                fiscal_period_end=obs.end, concept=obs.concept,
+                answer_type="numeric", gold_value=obs.val, gold_unit="USD",
+                source_accession=obs.accn, source_form=obs.form,
+                source_filed_date=obs.filed, source_url=source_url(cik, obs.accn),
+                category="post_cutoff_boundary", difficulty=None))
+    return out
+
+
 def build_false_premise(universe, segments_by_cik, sic_by_cik, limit: int) -> list[dict]:
     """Borrow a real segment name from a peer in the same SIC major group.
 
@@ -304,6 +367,7 @@ def main() -> int:
     records += build_restatements(universe, facts_by_cik)
     records += build_buried(universe, facts_by_cik, segments_by_cik)
     records += build_post_cutoff(universe, submissions)
+    records += build_cutoff_boundary(universe, facts_by_cik, submissions)
     records += build_false_premise(universe, segments_by_cik, sic_by_cik,
                                    args.false_premise)
 

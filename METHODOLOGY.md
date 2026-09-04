@@ -272,6 +272,50 @@ Google's slot is a `-preview` endpoint, which the lab can update silently. The
 mitigation is the harness recording the resolved model string on every row and
 quarantining any call whose resolved model differs from the requested one.
 
+## Measured knowledge cutoffs
+
+Elicited from each model at the start of the run (spec 7.4), three samples each,
+on 2026-09-02 for $0.04.
+
+| Model | Stated cutoff | Stable across 3 samples |
+|---|---|---|
+| `openai/gpt-5.6-sol` | 2024-06 | yes |
+| `openai/gpt-5.6-luna` | 2024-06 | yes |
+| `anthropic/claude-opus-5` | 2025-01 | yes |
+| `google/gemini-3.1-pro-preview` | 2025-01 | yes |
+| `x-ai/grok-4.6` | 2024-10 | **no - answered 2023-12 and 2024-10** |
+| `perplexity/sonar-pro` | 2025-08 | yes |
+
+The probe samples three times rather than once because single samples proved
+unreliable: Gemini answered 2025-01 and then 2024-08 to identical calls at
+temperature 0 during development, and Grok spans ten months across its three
+samples. A model that cannot state its own cutoff consistently cannot reliably
+know when to abstain, so this is reported as a finding rather than smoothed
+into a single number.
+
+## Why the post-cutoff bucket has two tiers
+
+Taking each company's most recent filing produced 48 post-cutoff records that
+were all post-cutoff for all six models, at gaps of 8-25 months, with 37 of the
+48 ending in a single month. Valid, but every one of them "obviously recent" -
+exactly the case spec 7.4 predicts models handle correctly - and the per-model
+boundary machinery it mandates had nothing to do, because no question fell on
+different sides for different models.
+
+A second tier of 98 **boundary** records now spans 2024-01 to 2025-04, the
+window the measured cutoffs actually fall in. They carry the true value, and
+the harness decides per model whether abstention or the figure is correct:
+
+| Model | Boundary records post-cutoff | Answerable |
+|---|---|---|
+| `gpt-5.6-sol` / `gpt-5.6-luna` | 49 | 49 |
+| `claude-opus-5`, `gemini-3.1-pro` | 44 | 54 |
+| `grok-4.6` | 47 | 51 |
+| `sonar-pro` | 0 | 98 |
+
+49 of the 98 have a different correct answer depending on which model is asked.
+Those are the records that make the comparison in spec 7.4 mean anything.
+
 ## Verification
 
 <!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the

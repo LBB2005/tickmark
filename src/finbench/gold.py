@@ -14,7 +14,8 @@ import pathlib
 from typing import Any, Iterable
 
 ANSWER_TYPES = {"numeric", "text", "none_exists", "post_cutoff"}
-CATEGORIES = {"buried", "restatement", "post_cutoff", "false_premise", "covenant"}
+CATEGORIES = {"buried", "restatement", "post_cutoff", "post_cutoff_boundary",
+              "false_premise", "covenant"}
 DIFFICULTIES = {"headline", "mid", "deep", None}
 VERIFICATIONS = {"auto", "human"}
 
