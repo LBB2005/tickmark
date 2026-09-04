@@ -129,7 +129,13 @@ def humanise_member(label: str | None, member: str) -> str:
         if cleaned:
             return cleaned
     name = re.sub(r"Member$", "", member)
-    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name).strip()
+    # Two boundaries, not one. Splitting only lower->upper leaves an acronym
+    # fused to the next word: ClientComputingAndPhysicalAIGroup came out as
+    # "... Physical AIGroup", and NIKEBrand as "NIKEBrand". The second rule
+    # splits the last capital of a run off a following capitalised word.
+    name = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
+    name = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", name)
+    return re.sub(r"\s+", " ", name).strip()
 
 
 def usable_member(parsed: dict[str, str], primary_axis: str) -> str | None:

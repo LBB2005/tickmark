@@ -116,3 +116,26 @@ def test_same_member_different_period_is_not_a_conflict():
     facts = [_sf("Power", 100.0, end="2025-12-31"),
              _sf("Power", 120.0, end="2024-12-31")]
     assert len(dimensional.drop_conflicting(facts)) == 2
+
+
+def test_acronyms_are_split_from_the_following_word():
+    # These six came out malformed in the first corpus build and would have
+    # gone verbatim into question prompts.
+    cases = {
+        "ClientComputingAndPhysicalAIGroupMember": "Client Computing And Physical AI Group",
+        "NIKEBrandMember": "NIKE Brand",
+        "PECOEnergyCoMember": "PECO Energy Co",
+        "USPharmaceuticalSegmentMember": "US Pharmaceutical Segment",
+        "EMEASegmentMember": "EMEA Segment",
+    }
+    for raw, expected in cases.items():
+        assert dimensional.humanise_member(None, raw) == expected, raw
+
+
+def test_bare_acronym_is_left_alone():
+    assert dimensional.humanise_member(None, "AMEAMember") == "AMEA"
+    assert dimensional.humanise_member(None, "EMEAMember") == "EMEA"
+
+
+def test_ordinary_camel_case_still_splits():
+    assert dimensional.humanise_member(None, "InnovativeMedicine") == "Innovative Medicine"

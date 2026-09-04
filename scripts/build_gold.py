@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -278,18 +279,70 @@ def build_cutoff_boundary(universe, facts_by_cik, submissions) -> list[dict]:
     return out
 
 
+# XBRL bucket names rather than real segments. "What was Salesforce's All
+# Other Segments revenue" reads as a trick phrasing, not the plausible-but-
+# absent segment spec 6.1 asks for, and a fabricated answer to it proves less.
+GENERIC_MEMBERS = ("all other", "other segment", "corporate", "unallocated",
+                   "eliminations", "reconciling", "intersegment",
+                   "consolidated", "total", "segment total", "other")
+
+
+def is_generic_member(label: str) -> bool:
+    cleaned = re.sub(r"[^a-z ]", "", label.lower()).strip()
+    return any(cleaned == g or cleaned.startswith(g + " ") or g == cleaned
+               for g in GENERIC_MEMBERS) or cleaned in GENERIC_MEMBERS
+
+
+def collides_with_footprint(label: str, own_geo: set[str], company: str) -> bool:
+    """Reject a borrowed segment that describes where the target actually operates.
+
+    WK Kellogg is the North American cereal spin-off; its geographic members
+    are spelled UNITED STATES and CANADA, so a literal string check never sees
+    "North America" and happily borrowed "North America Segment" from
+    Kellanova. That premise is not reliably false - a model answering with a
+    North America figure is defensibly right - so the region has to be matched
+    by meaning, not by spelling.
+    """
+    cleaned = re.sub(r"[^a-z ]", " ", label.lower())
+    haystack = " ".join(own_geo) + " " + company.lower()
+    for region, aliases in REGION_ALIASES.items():
+        if region in cleaned:
+            if any(alias in haystack for alias in aliases):
+                return True
+    return False
+
+
+REGION_ALIASES = {
+    "north america": ("united states", "canada", "mexico", "u.s.", "us", "usa"),
+    "americas": ("united states", "canada", "brazil", "latin america"),
+    "latin america": ("brazil", "mexico", "argentina", "chile"),
+    "europe": ("europe", "emea", "united kingdom", "germany", "france"),
+    "emea": ("europe", "emea", "middle east", "africa"),
+    "asia pacific": ("asia", "china", "japan", "australia", "apac"),
+    "amea": ("asia", "middle east", "africa"),
+    "greater china": ("china", "hong kong", "taiwan"),
+}
+
+
 def build_false_premise(universe, segments_by_cik, sic_by_cik, limit: int) -> list[dict]:
     """Borrow a real segment name from a peer in the same SIC major group.
 
     Plausible by construction, and verifiably absent from the target's own
     disclosure, so any number returned is fabrication.
+
+    Two guards keep the premise actually false: generic XBRL bucket names are
+    rejected, and a borrowed region is rejected when it describes where the
+    target really operates.
     """
     own_members: dict[int, set[str]] = {}
+    own_geo: dict[int, set[str]] = {}
     labels_by_sector: dict[str, list[tuple[int, str]]] = defaultdict(list)
     for cik, facts in segments_by_cik.items():
         members = {f.member_label for f in facts
                    if f.axis == dimensional.SEGMENT_AXIS}
         own_members[cik] = members
+        own_geo[cik] = {f.member_label.lower() for f in facts
+                        if f.axis == dimensional.GEOGRAPHIC_AXIS}
         sector = sic_by_cik.get(cik, "")[:2]
         for label in members:
             labels_by_sector[sector].append((cik, label))
@@ -301,12 +354,18 @@ def build_false_premise(universe, segments_by_cik, sic_by_cik, limit: int) -> li
         cik = int(entry["cik"])
         sector = sic_by_cik.get(cik, "")[:2]
         mine = own_members.get(cik, set())
+        geo = own_geo.get(cik, set())
+
+        def usable(other_cik: int, label: str) -> bool:
+            return (other_cik != cik and label not in mine
+                    and not is_generic_member(label)
+                    and not collides_with_footprint(label, geo, entry["name"]))
+
         candidates = [(o, lab) for o, lab in labels_by_sector.get(sector, [])
-                      if o != cik and lab not in mine]
+                      if usable(o, lab)]
         if not candidates:  # fall back to any peer, still verifiably absent
             candidates = [(o, lab) for s, pairs in labels_by_sector.items()
-                          for o, lab in pairs if o != cik and lab not in mine
-                          and s != sector]
+                          for o, lab in pairs if usable(o, lab) and s != sector]
         seen: set[str] = set()
         take = 3 if entry["role"] == "B" else 1
         for other_cik, label in candidates:
