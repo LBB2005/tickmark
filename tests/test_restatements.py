@@ -87,3 +87,33 @@ def test_concept_allowlist_filters_to_analyst_meaningful_tags():
     assert restatements.find(facts) == []
     assert len(restatements.find(facts, concepts=None)) == 1
     assert len(restatements.find(_facts([1000, 900], concept="Revenues"))) == 1
+
+
+def test_detects_the_real_splits_found_in_the_first_gold_build():
+    # Amazon 20-for-1, Salesforce 4-for-1, Danaher 2-for-1, GE 1-for-8.
+    assert restatements.is_probable_split(
+        "WeightedAverageNumberOfSharesOutstandingBasic", 500_000_000, 10_005_000_000)
+    assert restatements.is_probable_split(
+        "WeightedAverageNumberOfDilutedSharesOutstanding", 135_302_000, 541_208_000)
+    assert restatements.is_probable_split(
+        "WeightedAverageNumberOfDilutedSharesOutstanding", 335_863_000, 671_726_000)
+    assert restatements.is_probable_split("EarningsPerShareBasic", 0.58, 4.63)
+
+
+def test_non_per_share_concepts_are_never_called_splits():
+    # A revenue figure that happens to double is a real restatement.
+    assert not restatements.is_probable_split("Revenues", 1_000_000, 2_000_000)
+    assert not restatements.is_probable_split("Goodwill", 12_927_000_000, 6_382_000_000)
+
+
+def test_ordinary_per_share_revisions_survive():
+    # A 12% EPS revision is a recast, not a split.
+    assert not restatements.is_probable_split("EarningsPerShareBasic", 2.50, 2.80)
+    # Exactly 1.0x is not a split either.
+    assert not restatements.is_probable_split("EarningsPerShareBasic", 2.50, 2.50)
+
+
+def test_split_rows_are_dropped_from_find_but_reachable():
+    facts = _facts([0.58, 4.63], concept="EarningsPerShareBasic")
+    assert restatements.find(facts) == []
+    assert len(restatements.find(facts, exclude_splits=False)) == 1

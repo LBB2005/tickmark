@@ -158,6 +158,26 @@ defect: the financials scoping decision above bars segment-revenue extraction
 for role D entirely. Role D's buried-question quota is met with share-count and
 cover-page questions sourced from `companyfacts`.
 
+## Stock splits are not restatements
+
+A stock split retroactively rewrites every prior-period per-share figure by a
+clean integer ratio, so it surfaces in the restatement groupby looking exactly
+like a recast. It is not one. The restatement track is about prior periods
+superseded by later comparatives after spin-offs and divestitures; a split
+question tests split-awareness instead, and blending the two would corrupt the
+category.
+
+The first gold build contained 9 such records out of 77: Amazon 20-for-1,
+Salesforce 4-for-1, Danaher and Comcast 2-for-1, GE 1-for-8. The Amazon one is
+recognisable on sight, and leaving it in the published set would invite a
+reviewer to doubt the entire category.
+
+`restatements.is_probable_split` now excludes them: a per-share-sensitive
+concept whose revision ratio sits within 2% of a whole number between 2x and
+60x. Non-per-share concepts are never treated as splits, so a revenue figure
+that happens to double is still a restatement. The count stayed at 77 because
+the next-ranked genuine restatements took the freed slots.
+
 ## Density screen results
 
 All 58 candidates (50 primaries + 8 alternates) were scored against live EDGAR.

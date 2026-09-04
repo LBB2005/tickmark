@@ -21,6 +21,12 @@ SCORED_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A")
 MIN_RELATIVE_CHANGE = 0.005
 SCALE_TOLERANCE = 0.01  # how close to an exact power of 1000 counts as a retag
 
+# Concepts that a stock split retroactively rewrites in every prior period.
+SPLIT_SENSITIVE = ("EarningsPerShare", "WeightedAverageNumberOf", "PerShare",
+                   "DividendsDeclared", "SharesOutstanding")
+SPLIT_RATIO_TOLERANCE = 0.02
+MAX_SPLIT_RATIO = 60
+
 # Concepts an analyst would actually ask about. Spec section 6.2 requires the
 # prompt to name the concept the way an analyst would ("revenue", not
 # RevenueFromContractWithCustomerExcludingAssessedTax) - which is impossible
@@ -59,6 +65,33 @@ HEADLINE_CONCEPTS: frozenset[str] = frozenset({
     "NetCashProvidedByUsedInFinancingActivities",
     "IncomeTaxExpenseBenefit",
 })
+
+
+def is_probable_split(concept: str, before: float, after: float) -> bool:
+    """True when a per-share revision looks like a stock split, not a recast.
+
+    A split retroactively restates every prior per-share figure by a clean
+    integer ratio, so it surfaces in the groupby looking exactly like a
+    restatement. It is not one: the spec's restatement track is about prior
+    periods superseded by later comparatives after spin-offs and divestitures,
+    and a split question tests split-awareness instead.
+
+    Measured on the first gold build, 9 of 77 restatement records were splits -
+    Amazon 20-for-1, Salesforce 4-for-1, Danaher and Comcast 2-for-1, GE
+    1-for-8. Leaving the Amazon one in the published set would invite a
+    reviewer to doubt the entire category.
+    """
+    if not any(key in concept for key in SPLIT_SENSITIVE):
+        return False
+    if before == 0 or after == 0:
+        return False
+    ratio = abs(after) / abs(before)
+    inverse = 1 / ratio
+    largest = max(ratio, inverse)
+    if not 1.9 < largest < MAX_SPLIT_RATIO:
+        return False
+    nearest = min(abs(ratio - round(ratio)), abs(inverse - round(inverse)))
+    return nearest < SPLIT_RATIO_TOLERANCE
 
 
 def _is_scale_artifact(a: float, b: float, tolerance: float = SCALE_TOLERANCE) -> bool:
@@ -108,6 +141,7 @@ def find(
     min_relative_change: float = MIN_RELATIVE_CHANGE,
     forms: tuple[str, ...] = SCORED_FORMS,
     concepts: frozenset[str] | None = HEADLINE_CONCEPTS,
+    exclude_splits: bool = True,
 ) -> list[Restatement]:
     """Find restated figures. Pass concepts=None to see every tag unfiltered."""
     out: list[Restatement] = []
@@ -125,6 +159,8 @@ def find(
         if original.val == 0 or latest.val == 0:
             continue
         if _is_scale_artifact(original.val, latest.val):
+            continue
+        if exclude_splits and is_probable_split(concept, original.val, latest.val):
             continue
         change = abs(latest.val - original.val) / abs(original.val)
         if change < min_relative_change:
