@@ -51,7 +51,12 @@ SCORED_FORMS = ("10-K", "10-Q")
 # members of each that are safe. Anything else present alongside the axis being
 # asked about makes the fact a sub-split and therefore an ambiguous question.
 BENIGN_COMPANIONS: dict[str, frozenset[str]] = {
-    "ConsolidationItems": frozenset({"OperatingSegments"}),
+    "ConsolidationItems": frozenset({
+        "OperatingSegments",
+        # GE Vernova tags Electrification/Power/Wind exclusively this way;
+        # omitting it hid 144 rows and made the company look segment-less.
+        "OperatingSegmentsExcludingIntersegmentElimination",
+    }),
 }
 
 REVENUE_TAGS = frozenset({
@@ -82,6 +87,13 @@ class SegmentFact:
     accn: str
     form: str
     filed: str
+    qualifier: str | None = None   # the ConsolidationItems member, if any
+
+    @property
+    def identity(self) -> tuple:
+        """What a question pins down. Two facts sharing this must agree."""
+        return (self.cik, self.concept, self.axis, self.member,
+                self.unit, self.start, self.end, self.qtrs)
 
     @property
     def period_label(self) -> str:
@@ -134,6 +146,23 @@ def usable_member(parsed: dict[str, str], primary_axis: str) -> str | None:
     return member
 
 
+def drop_conflicting(facts: list[SegmentFact]) -> list[SegmentFact]:
+    """Remove facts where the same question would have two different answers.
+
+    Allowing more than one benign qualifier means a company can report the same
+    segment and period under both OperatingSegments and
+    OperatingSegmentsExcludingIntersegmentElimination with DIFFERENT values -
+    one including intersegment sales, one not. A question naming only the
+    segment and period cannot distinguish them, so both are dropped rather than
+    silently picking one.
+    """
+    values: dict[tuple, set[float]] = {}
+    for fact in facts:
+        values.setdefault(fact.identity, set()).add(fact.val)
+    ambiguous = {key for key, seen in values.items() if len(seen) > 1}
+    return [f for f in facts if f.identity not in ambiguous]
+
+
 def _start_for(end: str, qtrs: int) -> str | None:
     if qtrs == 0:
         return None
@@ -174,12 +203,14 @@ def extract(
 
     # dimh -> (axis, member), keeping only unambiguous facts.
     dims: dict[str, tuple[str, str]] = {}
+    qualifiers: dict[str, str | None] = {}
     for row in rows("dim.tsv"):
         parsed = parse_segments(row["segments"])
         for axis in axes:
             member = usable_member(parsed, axis)
             if member is not None:
                 dims[row["dimhash"]] = (axis, member)
+                qualifiers[row["dimhash"]] = parsed.get("ConsolidationItems")
                 break
 
     labels: dict[str, str] = {}
@@ -208,8 +239,9 @@ def extract(
             unit=row["uom"], start=_start_for(end, qtrs), end=end, qtrs=qtrs,
             val=value, accn=sub["adsh"], form=sub["form"],
             filed=_ddate_to_iso(sub["filed"]),
+            qualifier=qualifiers.get(row["dimh"]),
         ))
-    return facts
+    return drop_conflicting(facts)
 
 
 def recent_months(count: int, today: dt.date | None = None) -> list[str]:

@@ -82,3 +82,37 @@ def test_pure_axis_with_no_companions_is_usable():
 
 def test_missing_axis_returns_none():
     assert dimensional.usable_member({"Geographical": "US"}, "BusinessSegments") is None
+
+
+def _sf(member, val, qualifier=None, end="2025-12-31"):
+    return SegmentFact(
+        cik=1, concept="Revenues", axis="BusinessSegments", member=member,
+        member_label=member, unit="USD", start=None, end=end, qtrs=4, val=val,
+        accn="a", form="10-K", filed="2026-02-01", qualifier=qualifier)
+
+
+def test_excluding_intersegment_qualifier_is_accepted():
+    # GE Vernova tags Electrification/Power/Wind exclusively this way.
+    parsed = {"BusinessSegments": "PowerSegment",
+              "ConsolidationItems": "OperatingSegmentsExcludingIntersegmentElimination"}
+    assert dimensional.usable_member(parsed, "BusinessSegments") == "PowerSegment"
+
+
+def test_conflicting_values_for_one_question_are_dropped():
+    facts = [_sf("Power", 100.0, "OperatingSegments"),
+             _sf("Power", 90.0, "OperatingSegmentsExcludingIntersegmentElimination"),
+             _sf("Wind", 50.0, "OperatingSegments")]
+    kept = dimensional.drop_conflicting(facts)
+    assert {f.member for f in kept} == {"Wind"}
+
+
+def test_agreeing_duplicates_are_kept():
+    facts = [_sf("Power", 100.0, "OperatingSegments"),
+             _sf("Power", 100.0, "OperatingSegmentsExcludingIntersegmentElimination")]
+    assert len(dimensional.drop_conflicting(facts)) == 2
+
+
+def test_same_member_different_period_is_not_a_conflict():
+    facts = [_sf("Power", 100.0, end="2025-12-31"),
+             _sf("Power", 120.0, end="2024-12-31")]
+    assert len(dimensional.drop_conflicting(facts)) == 2

@@ -158,6 +158,43 @@ defect: the financials scoping decision above bars segment-revenue extraction
 for role D entirely. Role D's buried-question quota is met with share-count and
 cover-page questions sourced from `companyfacts`.
 
+## Segment qualifiers and conflicting values
+
+`ConsolidationItems` carries more than one benign member. Alongside
+`OperatingSegments`, GE Vernova tags Electrification, Power and Wind
+*exclusively* as `OperatingSegmentsExcludingIntersegmentElimination`; omitting
+that member hid 144 rows and made a three-segment company look segment-less,
+which in turn made its false-premise records impossible to confirm.
+
+Admitting a second qualifier creates a risk, so it is guarded. A company can
+report the same segment and period under both members with different values -
+one including intersegment sales, one not. A question naming only the segment
+and the period cannot distinguish them, so `drop_conflicting` removes every
+fact whose (company, concept, axis, member, unit, period) key carries more than
+one distinct value rather than silently picking one. Identical values under both
+qualifiers are kept.
+
+Net effect: 7,486 facts to 7,200, with companies-reporting-segments rising from
+48 to 52. Fewer facts, and the ones that remain answer exactly one question.
+
+## Automated pre-check on false premises
+
+A false-premise record is only correct if the segment it names genuinely does
+not exist for that company. `finbench.false_premise` cross-checks all 38 against
+the segment corpus and separates the ones where absence is positively confirmed
+from the ones where it cannot be. It does not replace the human pass: absence
+from this corpus is not absence from the filings. It concentrates the human pass
+on the records that carry risk - currently 4 of 38, all single-segment
+companies (WK Kellogg, Salesforce) with no business-segment facts to check
+against.
+
+Matching normalises both sides to bare alphanumerics before stripping the
+`segment`/`member` boilerplate, because filings label a member "Med Tech
+Segment" while the element is "MedTechMember" and a word-boundary regex cannot
+see the suffix in the camel-case form. Substring matching also needs a length
+floor on both sides: without it the geographic member "US" matches inside
+"SafetyAndIndustrial" and every long segment name looks like a collision.
+
 ## Stock splits are not restatements
 
 A stock split retroactively rewrites every prior-period per-share figure by a
