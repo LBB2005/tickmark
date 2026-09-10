@@ -316,6 +316,42 @@ the harness decides per model whether abstention or the figure is correct:
 49 of the 98 have a different correct answer depending on which model is asked.
 Those are the records that make the comparison in spec 7.4 mean anything.
 
+## Question rendering
+
+Gold records store fields, not sentences. `finbench.prompts` turns one into the
+question an analyst would type, and two properties of that rendering are
+enforced by tests rather than by care:
+
+- A **false-premise** question goes through the same template as a real segment
+  question, and a **post-cutoff** question through the same template as an
+  answerable one. If the category were legible from the wording, the benchmark
+  would measure trap detection instead of parametric recall.
+- An unmapped XBRL tag raises. No question ever reaches a model reading
+  "RevenueFromContractWithCustomerExcludingAssessedTax".
+
+Company names are the EDGAR registrant strings verbatim with the ticker
+appended, so `DANAHER CORP /DE/ (DHR)`. Title-casing them reads better and is a
+transformation this project cannot verify; ambiguity about which registrant is
+being asked costs more than typography.
+
+### Segments that cannot be named
+
+Carvana and Elanco tag a bare `ReportableSegmentMember` - the whole member name
+is boilerplate - which rendered as "revenue in the  segment". Two buried
+records were built on it. `is_unnameable_member` now drops those facts at build
+time and `question_text` raises on one, so the failure cannot recur silently.
+The gold count stayed at 358: the freed slots went to the next segment facts in
+the surplus.
+
+### The response schema
+
+`answer`, `unit`, `confidence` (0-100), `abstain`, and a two-sentence free-text
+`note`. Deliberately absent is any field asking whether the premise holds. Such
+a field would appear on all 358 questions and tell every model to go looking
+for a trick, which is a different measurement. The three-way false-premise
+outcome (fabricated / abstained / correctly_rejected) is recovered at grading
+time from `abstain` and `note`.
+
 ## Verification
 
 <!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the

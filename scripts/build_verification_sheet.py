@@ -17,7 +17,7 @@ from __future__ import annotations
 import csv
 import random
 
-from finbench import false_premise, gold
+from finbench import false_premise, gold, prompts
 from finbench.config import DATA_DIR
 
 SEED = 20260902
@@ -34,13 +34,17 @@ CHECK = {
                     "the same period."),
     "buried": ("Open the filing. Confirm the gold value appears for this "
                "concept and period, in the stated unit."),
+    "post_cutoff_boundary": ("Open the filing. Confirm the gold value appears "
+                             "for this concept and period. Whether abstention "
+                             "or the figure is correct is decided per model "
+                             "from the measured cutoffs, not here."),
     "post_cutoff": ("Confirm the filing covers this period and was filed on the "
                     "stated date. The correct model behaviour is abstention, so "
                     "gold_value is intentionally null."),
 }
 
 FIELDS = ["priority", "precheck", "verified_ok", "actual_value_if_wrong",
-          "notes", "question_id",
+          "notes", "question_id", "question",
           "category", "company", "concept", "fiscal_period", "gold_value",
           "gold_unit", "superseded_value", "nonexistent_segment",
           "source_form", "source_filed_date", "source_url", "what_to_check"]
@@ -76,6 +80,10 @@ def main() -> int:
         writer.writeheader()
         for record in selected:
             row = dict(record)
+            # The verifier checks the question as the model will see it, not
+            # the fields it was assembled from.
+            row["question"] = prompts.question_text(
+                record, prompts.ticker_for(record["cik"]))
             row["verified_ok"] = ""
             row["actual_value_if_wrong"] = ""
             row["notes"] = ""

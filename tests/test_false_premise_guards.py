@@ -37,3 +37,16 @@ def test_europe_alias_is_caught_for_a_european_reporter():
 def test_non_geographic_segment_names_are_unaffected_by_footprint_guard():
     geo = {"united states", "canada"}
     assert not bg.collides_with_footprint("Innovative Medicine", geo, "WK Kellogg Co")
+
+
+def test_a_member_that_is_only_boilerplate_is_unnameable():
+    # Carvana and Elanco tag a bare "ReportableSegmentMember", which leaves
+    # nothing to name: the question renders as "in the  segment".
+    for label in ("Reportable Segment", "Segment", "Operating Segment",
+                  "Member"):
+        assert bg.is_unnameable_member(label), label
+
+
+def test_a_real_segment_name_is_nameable():
+    for label in ("Aviation Segment", "Med Tech", "Converse"):
+        assert not bg.is_unnameable_member(label), label

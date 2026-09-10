@@ -156,6 +156,8 @@ def build_buried(universe, facts_by_cik, segments_by_cik) -> list[dict]:
         for fact in facts:
             if fact.concept not in dimensional.REVENUE_TAGS:
                 continue
+            if is_unnameable_member(fact.member_label):
+                continue
             tier = "mid" if fact.axis == dimensional.SEGMENT_AXIS else "deep"
             tiers[tier].append(base_record(
                 question_id=(f"bur-{tier[0]}-{entry['ticker']}-{fact.member}-"
@@ -291,6 +293,19 @@ def is_generic_member(label: str) -> bool:
     cleaned = re.sub(r"[^a-z ]", "", label.lower()).strip()
     return any(cleaned == g or cleaned.startswith(g + " ") or g == cleaned
                for g in GENERIC_MEMBERS) or cleaned in GENERIC_MEMBERS
+
+
+# A member whose whole name is segment boilerplate ("ReportableSegmentMember",
+# tagged by single-segment Carvana and Elanco) leaves nothing to name: the
+# question renders as "revenue in the  segment". Not a question, so not asked.
+BOILERPLATE_ONLY = re.compile(
+    r"^\s*(reportable\s+segment|operating\s+segment|segment|member)\s*$",
+    re.IGNORECASE,
+)
+
+
+def is_unnameable_member(label: str) -> bool:
+    return bool(BOILERPLATE_ONLY.match(label or ""))
 
 
 def collides_with_footprint(label: str, own_geo: set[str], company: str) -> bool:
