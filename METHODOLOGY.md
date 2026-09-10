@@ -352,6 +352,40 @@ for a trick, which is a different measurement. The three-way false-premise
 outcome (fabricated / abstained / correctly_rejected) is recovered at grading
 time from `abstain` and `note`.
 
+## How the frozen rules are applied
+
+`config/grading.yaml` holds the thresholds; `finbench.grading` is the only
+thing that reads them. Three readings of the config were decisions, so they are
+recorded here.
+
+**Stated precision AND the floor, not either.** A numeric answer is correct
+only if it agrees with gold when both are rounded to the number of significant
+figures the model stated, *and* its relative error is within 0.1%. Stated
+precision alone would credit "about $100 billion" against 96,773,000,000, since
+both round to the same single figure. The floor alone would credit a figure
+whose extra digits are invented. The practical effect: a three-significant-
+figure answer passes, a one- or two-figure answer does not.
+
+Significant figures are counted off the digits the model wrote. Trailing zeros
+on a whole number are not significant - a model answering 96800000000 is
+claiming three digits, not eleven - which is the only reading available once
+the schema asks for a plain number rather than "$96.8 billion".
+
+**Scale errors are checked first.** A ratio within 1% of a power of 1000
+classifies as a scale error even when the figure would otherwise round to gold.
+Being off by a thousandfold is never correct, however well the digits line up.
+
+**Format adherence is measured, not repaired.** `format_ok` is true only for a
+bare JSON object: a code fence or a sentence of preamble is a schema violation
+and is counted as one. A fallback parser still recovers the object from
+anywhere in the response, so a violation scores as data rather than as a failed
+call - which is the point of leaving the schema prompt-instructed.
+
+**Rejecting a premise requires saying so.** Separating `correctly_rejected`
+from `abstained` needs the model to name the reason, so a phrase list matched
+against the `note` field decides it. The list is in the config file rather than
+in code, and was committed before `results/` contained anything.
+
 ## Verification
 
 <!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the

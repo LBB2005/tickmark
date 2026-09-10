@@ -38,3 +38,19 @@ abstention:
 false_premise:
   # Three-way, never binary (spec section 8.4).
   outcomes: [fabricated, abstained, correctly_rejected]
+  # Separating "correctly_rejected" from "abstained" needs the model to say
+  # WHY. Matched against the note field and, for schema violations, the raw
+  # text. Added before results/ contains a file; see git log.
+  rejection_phrases:
+    - "does not report"
+    - "does not have a"
+    - "does not operate"
+    - "does not exist"
+    - "doesn't report"
+    - "doesn't have a"
+    - "no such"
+    - "no segment"
+    - "not a segment"
+    - "not a reportable segment"
+    - "is not one of"
+    - "never reported"
