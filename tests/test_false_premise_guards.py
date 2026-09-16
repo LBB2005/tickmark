@@ -50,3 +50,10 @@ def test_a_member_that_is_only_boilerplate_is_unnameable():
 def test_a_real_segment_name_is_nameable():
     for label in ("Aviation Segment", "Med Tech", "Converse"):
         assert not bg.is_unnameable_member(label), label
+
+
+def test_segment_prefixed_reconciling_lines_are_generic():
+    # Disney tags "Segment Eliminations"; it passed as a buried question.
+    for label in ("Segment Eliminations", "Segments Elimination",
+                  "Corporate And Other", "Reconciling Items"):
+        assert bg.is_generic_member(label), label

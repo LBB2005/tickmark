@@ -36,9 +36,9 @@ import json
 import pathlib
 import re
 import zipfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
-from . import config
+from . import config, observations, periods
 from .http import SecClient
 
 NOTES_URL = ("https://www.sec.gov/files/dera/data/"
@@ -248,6 +248,59 @@ def extract(
             qualifier=qualifiers.get(row["dimh"]),
         ))
     return drop_conflicting(facts)
+
+
+# Notes data sets round ddate to the nearest month-end, so the true period end
+# can sit up to about half a month either side of it.
+DDATE_ROUNDING_DAYS = 16
+
+
+# Costco's 16-week fourth quarter is the longest legitimate drift from a
+# calendar quarter (112 days against 91).
+QUARTER_LENGTH_SLACK_DAYS = 24
+
+
+def _near_quarter_length(start: str, end: str, qtrs: int) -> bool:
+    """Excludes stub periods that merely round to the right quarter count.
+
+    Becton Dickinson's 10-Q carries a 51-day span alongside the real quarter;
+    both round to one quarter, and the ambiguity dropped the real one.
+    """
+    days = (dt.date.fromisoformat(end) - dt.date.fromisoformat(start)).days + 1
+    return abs(days - qtrs * 91.31) <= QUARTER_LENGTH_SLACK_DAYS
+
+
+def resolve_periods(facts: list[SegmentFact], companyfacts: dict) -> list[SegmentFact]:
+    """Replace each fact's month-end-rounded dates with the filing's real period.
+
+    ddate is rounded: Costco's 12 weeks ended May 10, 2026 arrive as April 30,
+    a period Costco never reports, and a question naming April 30 has no right
+    answer. The same accession's non-dimensional facts in companyfacts carry
+    exact start and end dates, so the period is looked up there by accession,
+    duration and nearness to ddate. A fact with no match, or more than one, is
+    dropped rather than guessed.
+    """
+    spans: dict[str, set[tuple[str, str]]] = {}
+    for obs in observations.iter_observations(companyfacts):
+        if obs.start is not None:
+            spans.setdefault(obs.accn, set()).add((obs.start, obs.end))
+
+    out: list[SegmentFact] = []
+    for fact in facts:
+        if fact.qtrs == 0:
+            continue
+        rounded = dt.date.fromisoformat(fact.end)
+        matches = {
+            (start, end) for start, end in spans.get(fact.accn, ())
+            if periods.quarters_between(start, end) == fact.qtrs
+            and _near_quarter_length(start, end, fact.qtrs)
+            and abs((dt.date.fromisoformat(end) - rounded).days) <= DDATE_ROUNDING_DAYS
+        }
+        if len(matches) != 1:
+            continue
+        start, end = matches.pop()
+        out.append(replace(fact, start=start, end=end))
+    return out
 
 
 def recent_months(count: int, today: dt.date | None = None) -> list[str]:

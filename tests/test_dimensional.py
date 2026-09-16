@@ -139,3 +139,50 @@ def test_bare_acronym_is_left_alone():
 
 def test_ordinary_camel_case_still_splits():
     assert dimensional.humanise_member(None, "InnovativeMedicine") == "Innovative Medicine"
+
+
+def _seg(end, qtrs, accn="0000909832-26-000020", val=51_434_000_000.0):
+    return SegmentFact(
+        cik=909832, concept="Revenues", axis="Geographical", member="US",
+        member_label="United States", unit="USD",
+        start=dimensional._start_for(end, qtrs), end=end, qtrs=qtrs, val=val,
+        accn=accn, form="10-Q", filed="2026-05-28")
+
+
+def _facts(*rows):
+    return {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
+        {"start": s, "end": e, "val": 1.0, "accn": a, "form": "10-Q",
+         "filed": "2026-05-28"} for s, e, a in rows]}}}}}
+
+
+def test_notes_month_end_date_resolves_to_the_filings_real_period():
+    # Notes data sets round ddate to the nearest month-end: Costco's 12 weeks
+    # ended May 10 arrive as April 30, a period Costco never reports.
+    accn = "0000909832-26-000020"
+    facts = _facts(("2026-02-16", "2026-05-10", accn),
+                   ("2025-09-01", "2026-05-10", accn))
+    [fact] = dimensional.resolve_periods([_seg("2026-04-30", 1)], facts)
+    assert (fact.start, fact.end, fact.qtrs) == ("2026-02-16", "2026-05-10", 1)
+
+
+def test_unresolvable_segment_period_is_dropped_not_guessed():
+    facts = _facts(("2025-09-01", "2026-05-10", "some-other-accession"))
+    assert dimensional.resolve_periods([_seg("2026-04-30", 1)], facts) == []
+
+
+def test_ambiguous_segment_period_is_dropped():
+    accn = "0000909832-26-000020"
+    facts = _facts(("2026-02-16", "2026-05-10", accn),
+                   ("2026-02-01", "2026-04-26", accn))
+    assert dimensional.resolve_periods([_seg("2026-04-30", 1)], facts) == []
+
+
+def test_stub_period_does_not_make_the_real_quarter_ambiguous():
+    # BDX files a 51-day span next to its real quarter; both round to qtrs=1.
+    accn = "0000010795-26-000026"
+    facts = _facts(("2026-01-01", "2026-03-31", accn),
+                   ("2026-02-09", "2026-03-31", accn),
+                   ("2025-10-01", "2026-03-31", accn))
+    fact = _seg("2026-03-31", 1, accn=accn)
+    [resolved] = dimensional.resolve_periods([fact], facts)
+    assert (resolved.start, resolved.end) == ("2026-01-01", "2026-03-31")

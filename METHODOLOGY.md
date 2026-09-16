@@ -63,10 +63,6 @@ page) and used at analysis time, not as a tier split or a filter.
 
 ## Segment data source
 
-<!-- Filled in at Task 1.5 after the timeboxed spike. -->
-
-## Segment data source
-
 `companyfacts` returns non-dimensional facts only, so segment revenue needs a
 separate source. The spec budgeted a day for parsing raw XBRL instance
 documents. A timeboxed spike found a cheaper path and it was taken.
@@ -388,5 +384,59 @@ in code, and was committed before `results/` contained anything.
 
 ## Verification
 
-<!-- Filled in at Task 1.9 and Milestone 4: human-verified count, and the
-     abstention classification agreement rate on a random 100. -->
+<!-- Human-verified count filled in when the sheet is applied; abstention
+     classification agreement rate on a random 100 at Milestone 4. -->
+
+### Round 1: evidence pass, and the gold rebuild it forced
+
+Before any human sign-off, an AI assistant checked all 78 sheet rows against
+the filings and wrote proposed verdicts with evidence
+(`data/verification_round1_proposed.csv`, `data/verification_round1_report.md`).
+Those verdicts are evidence for the human pass, not the human pass: no record
+is marked `verification: human` on their strength.
+
+It proposed 74 correct and 4 wrong. None of the four was a wrong number. Every
+one was the right number attached to the wrong period, and three of the four
+traced to pipeline bugs rather than one-off bad rows. The gold set was
+therefore rebuilt from the same cached data - before any benchmark question
+was sent to a model - rather than patched row by row.
+
+**Period labels came from the form type, not the dates.** Boundary records
+were phrased from the filing's form: anything on a 10-K became "the fiscal
+year ended", anything on a 10-Q "the three months ended". A 10-K carries
+quarterly comparatives and a 10-Q carries year-to-date figures, so DuPont's
+Q1 2024 revenue ($1.599B) was asked as a fiscal year, and Nike's nine-month
+revenue ($38.8B) as a quarter. 13 of 98 boundary records were mislabeled
+(a 14th, Costco's 12-week quarter, is now phrased in weeks); only 2 of the 13
+were in the random sample, so a sample-only review would have passed the
+other 11. Labels now come from each observation's own start and end.
+
+**A twelve-month span is not necessarily a fiscal year.** Amazon's 10-Qs tag
+trailing-twelve-month cash-flow figures ending September 30, and the
+restatement track called one "the fiscal year ended September 30, 2016".
+Every annual-length period is now checked against the company's fiscal
+year-end from EDGAR submissions (`fiscalYearEnd`), with a week of tolerance
+for 52/53-week filers, and rejected if it does not match.
+
+**The notes data sets round period ends to month-end.** `ddate` is the nearest
+month-end, so Costco's 12 weeks ended May 10, 2026 arrived as "the three months
+ended April 30", a period Costco never reports. Segment facts now take their
+exact dates from the same accession's non-dimensional facts in companyfacts;
+a fact with no unique match is dropped (under 3% of segment revenue facts), never
+guessed. 27 of 97 buried records changed as a result, almost all to the same
+value with the true end date. Periods that a filer reports in weeks and that
+are more than a week off a calendar quarter are now phrased in weeks.
+
+**Two further defects the sample could not have caught.** "Segment
+Eliminations" (Disney, -$643M) passed the generic-member filter, which only
+matched labels *starting* with a reconciling word; a $0 Phillips 66 chemicals
+row was also a buried question. Both are now filtered. And the false-premise
+builder iterated a Python `set`, so the borrowed segment names depended on
+`PYTHONHASHSEED`: two builds from identical data produced different records.
+It is now sorted, and the post-cutoff age check uses a pinned date instead of
+today, so the gold set is a pure function of the cached data. 20 of the 38
+false-premise records changed in consequence.
+
+The verification sheet was regenerated from the rebuilt set with the same
+fixed seed. 52 of its 78 rows carry round-1 evidence for an unchanged record;
+26 are new or changed and have none.

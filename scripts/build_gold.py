@@ -33,6 +33,10 @@ RESTATEMENTS_PER_ROLE = {"A": 3, "C": 2, "D": 2}
 # after its 2025 acquisition, so its newest period is over a year old and
 # would be squarely inside every model's training data.
 POST_CUTOFF_MAX_AGE_DAYS = 300
+# Age is measured from a pinned date, not today. Against today's date the same
+# cached filings produce a different gold set depending on when the build runs.
+# This is the date of the build the published records were first drawn from.
+AS_OF = dt.date(2026, 9, 3)
 BURIED_TARGET = {"headline": 20, "mid": 50, "deep": 30}
 
 # Spec 7.4 requires scoring the post-cutoff bucket against EACH model's own
@@ -87,7 +91,12 @@ def build_restatements(universe, facts_by_cik) -> list[dict]:
         if not quota:
             continue
         cik = int(entry["cik"])
-        found = restatements.find(facts_by_cik[cik])
+        # A twelve-month span that does not end at the fiscal year-end is a
+        # trailing-twelve-month figure (Amazon's September TTM), and
+        # periods.phrase would call it a fiscal year.
+        found = [r for r in restatements.find(facts_by_cik[cik])
+                 if not periods.is_annual(r.start, r.end)
+                 or periods.ends_at_fiscal_year_end(r.end, entry.get("fye"))]
         # Prefer annual periods: a recast fiscal year is the cleanest question.
         found.sort(key=lambda r: (not periods.is_annual(r.start, r.end),
                                   -r.relative_change))
@@ -117,7 +126,8 @@ def build_buried(universe, facts_by_cik, segments_by_cik) -> list[dict]:
         facts = facts_by_cik[cik]
         annual = [o for o in observations.iter_observations(facts)
                   if o.concept in HEADLINE_CONCEPTS and o.form == "10-K"
-                  and periods.is_annual(o.start, o.end)]
+                  and periods.is_annual(o.start, o.end)
+                  and periods.ends_at_fiscal_year_end(o.end, entry.get("fye"))]
         annual.sort(key=lambda o: (o.filed, o.end), reverse=True)
         if annual:
             o = annual[0]
@@ -153,10 +163,20 @@ def build_buried(universe, facts_by_cik, segments_by_cik) -> list[dict]:
         entry = by_ticker.get(cik)
         if entry is None or entry["role"] in NO_SEGMENT_ROLES:
             continue
-        for fact in facts:
+        # Real period dates first: the notes data sets round them to month-end.
+        resolved = dimensional.drop_conflicting(
+            dimensional.resolve_periods(facts, facts_by_cik.get(cik, {})))
+        for fact in resolved:
             if fact.concept not in dimensional.REVENUE_TAGS:
                 continue
             if is_unnameable_member(fact.member_label):
+                continue
+            # "Segment Eliminations" is a reconciling line, and a $0 segment is
+            # a legal XBRL row that no analyst would ask about.
+            if is_generic_member(fact.member_label) or fact.val == 0:
+                continue
+            if fact.qtrs >= 4 and not periods.ends_at_fiscal_year_end(
+                    fact.end, entry.get("fye")):
                 continue
             tier = "mid" if fact.axis == dimensional.SEGMENT_AXIS else "deep"
             tiers[tier].append(base_record(
@@ -216,7 +236,7 @@ def build_post_cutoff(universe, submissions) -> list[dict]:
         # Most recent periodic filing: its period is the newest thing on file
         # and therefore the most likely to postdate a model's training cutoff.
         form, report_date, filing_date, accession = recent[0]
-        age = (dt.date.today() - dt.date.fromisoformat(report_date)).days
+        age = (AS_OF - dt.date.fromisoformat(report_date)).days
         if age > POST_CUTOFF_MAX_AGE_DAYS:
             print(f"  post-cutoff SKIP {entry['ticker']}: newest period "
                   f"{report_date} is {age} days old")
@@ -255,6 +275,9 @@ def build_cutoff_boundary(universe, facts_by_cik, submissions) -> list[dict]:
                 continue
             if obs.start is None or not (low <= obs.end <= high):
                 continue
+            if (periods.is_annual(obs.start, obs.end)
+                    and not periods.ends_at_fiscal_year_end(obs.end, entry.get("fye"))):
+                continue
             if obs.accn not in by_accession:
                 continue
             key = (obs.start, obs.end)
@@ -268,11 +291,14 @@ def build_cutoff_boundary(universe, facts_by_cik, submissions) -> list[dict]:
         step = max(1, len(chosen) // BOUNDARY_PER_COMPANY)
         picks = chosen[::step][:BOUNDARY_PER_COMPANY]
         for obs in picks:
-            form, report_date, filing_date, accession = by_accession[obs.accn]
+            # Label from the observation's own dates. The form type says
+            # nothing about the span: a 10-K carries quarterly comparatives
+            # (DuPont Q1 2024 came out as "fiscal year") and a 10-Q carries
+            # six- and nine-month year-to-date figures.
             out.append(base_record(
                 question_id=f"pcb-{entry['ticker']}-{obs.end}",
                 company=entry["name"], cik=cik,
-                fiscal_period=periods.phrase_for_form(form, obs.end),
+                fiscal_period=periods.phrase(obs.start, obs.end),
                 fiscal_period_end=obs.end, concept=obs.concept,
                 answer_type="numeric", gold_value=obs.val, gold_unit="USD",
                 source_accession=obs.accn, source_form=obs.form,
@@ -289,10 +315,21 @@ GENERIC_MEMBERS = ("all other", "other segment", "corporate", "unallocated",
                    "consolidated", "total", "segment total", "other")
 
 
+# A label containing any of these words is a reconciling line wherever the
+# word sits: "Segment Eliminations" slipped past a prefix-only check.
+RECONCILING_WORDS = frozenset({"elimination", "eliminations", "intersegment",
+                               "reconciling", "unallocated"})
+SEGMENT_BOILERPLATE_WORDS = frozenset({"segment", "segments", "member",
+                                       "reportable", "operating"})
+
+
 def is_generic_member(label: str) -> bool:
-    cleaned = re.sub(r"[^a-z ]", "", label.lower()).strip()
-    return any(cleaned == g or cleaned.startswith(g + " ") or g == cleaned
-               for g in GENERIC_MEMBERS) or cleaned in GENERIC_MEMBERS
+    words = re.sub(r"[^a-z ]", "", label.lower()).split()
+    if RECONCILING_WORDS & set(words):
+        return True
+    cleaned = " ".join(w for w in words if w not in SEGMENT_BOILERPLATE_WORDS)
+    return any(cleaned == g or cleaned.startswith(g + " ")
+               for g in GENERIC_MEMBERS)
 
 
 # A member whose whole name is segment boilerplate ("ReportableSegmentMember",
@@ -359,7 +396,9 @@ def build_false_premise(universe, segments_by_cik, sic_by_cik, limit: int) -> li
         own_geo[cik] = {f.member_label.lower() for f in facts
                         if f.axis == dimensional.GEOGRAPHIC_AXIS}
         sector = sic_by_cik.get(cik, "")[:2]
-        for label in members:
+        # Sorted: iterating the set directly made the borrowed segments depend
+        # on PYTHONHASHSEED, so two builds from the same cache disagreed.
+        for label in sorted(members):
             labels_by_sector[sector].append((cik, label))
 
     out: list[dict] = []
@@ -423,6 +462,7 @@ def main() -> int:
             facts_by_cik[cik] = edgar.fetch_companyfacts(client, cik)
             sub = edgar.fetch_submissions(client, cik)
             sic_by_cik[cik] = str(sub.get("sic") or "")
+            entry["fye"] = sub.get("fiscalYearEnd") or None
             recent = sub["filings"]["recent"]
             rows = [(recent["form"][i], recent["reportDate"][i],
                      recent["filingDate"][i], recent["accessionNumber"][i])

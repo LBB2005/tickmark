@@ -4,7 +4,7 @@ Working repo for LLM-driven finance research and tooling.
 
 ## Status
 
-Initial scaffold — no code yet.
+Gold set built and awaiting human verification. See `METHODOLOGY.md`.
 
 ## Setup
 
