@@ -108,6 +108,34 @@ def build_plan(
     return plan
 
 
+def build_toggle_plan(
+    questions: list[dict[str, Any]],
+    cfg: dict[str, Any],
+    samples: int | None = None,
+) -> list[dict[str, Any]]:
+    """The reasoning-on arm of the spec 7.7 toggle.
+
+    Only the ON arm is called. The OFF arm is the main run's own rows for the
+    same model and questions: same day, same config, reasoning already off, so
+    calling it again would pay twice for a measurement already held.
+
+    The model keeps its main-run id so scoring finds its stated cutoff and the
+    two arms pair on (question_id, model_id, sample_idx). The arm is carried on
+    the row instead.
+    """
+    tcfg = cfg["reasoning_toggle"]
+    base = next(m for m in cfg["models"] if m["id"] == tcfg["model_id"])
+    on_model = {**base, "reasoning": tcfg["on"],
+                "max_tokens": tcfg["max_tokens_on"]}
+    samples = samples if samples is not None else cfg["sampling"]["samples_per_question"]
+    chosen = select_questions(questions, tcfg["subset_size"], seed=tcfg.get("seed", 0))
+    return [
+        {"question": q, "model": on_model, "sample_idx": i,
+         "track": "reasoning_toggle", "arm": "on"}
+        for q in chosen for i in range(samples)
+    ]
+
+
 def _print_plan(plan: list[dict[str, Any]]) -> None:
     counts: dict[str, int] = {}
     for item in plan:
@@ -153,19 +181,19 @@ def execute(
     if scored_path is not None:
         scored_fh = scored_path.open("w", encoding="utf-8")
 
-    def one(item: dict[str, Any]) -> None:
+    def one(item: dict[str, Any], attempt: int = 1) -> Any:
         nonlocal cost, ok, failed, quarantined
         with lock:
             if aborted["flag"] or cost >= spend_cap:
                 aborted["flag"] = True
-                return
+                return None
         model = item["model"]
         question = item["question"]
         result = client.call(
             model=model,
             messages=prompts.build_messages(question),
             temperature=defaults.get("temperature", 0),
-            max_tokens=defaults.get("max_tokens", 700),
+            max_tokens=model.get("max_tokens", defaults.get("max_tokens", 700)),
         )
         parsed = grading.parse_response(result.text or "")
         grade = scoring.grade(
@@ -177,7 +205,9 @@ def execute(
             "run_date": run_date,
             "question_id": question["question_id"],
             "sample_idx": item["sample_idx"],
-            "track": "closed_book",
+            "track": item.get("track", "closed_book"),
+            "arm": item.get("arm"),
+            "attempt": attempt,
             "category": question.get("category"),
             "difficulty": question.get("difficulty"),
             "role": model.get("role"),
@@ -204,6 +234,11 @@ def execute(
                       f"quar={quarantined} ${cost:.2f}", flush=True)
             if cost >= spend_cap:
                 aborted["flag"] = True
+            if not result.ok:
+                retry_queue.append(item)
+        return result
+
+    retry_queue: list[dict[str, Any]] = []
 
     try:
         with gzip.open(raw_path, "wt", encoding="utf-8") as raw_fh:
@@ -223,13 +258,35 @@ def execute(
                 if aborted["flag"]:
                     print(f"spend cap ${spend_cap:.2f} reached; aborting",
                           flush=True)
+
+            # One retry, for transport failures only (ok=False: timeouts,
+            # dropped connections). A substitution quarantine is ok=True and is
+            # never retried - it is a finding about routing, and re-sending until
+            # the right model answers would erase it. Exactly once, so a dead
+            # endpoint cannot loop, and still under the same spend cap.
+            first_failures = list(retry_queue)
+            retry_queue.clear()
+            retried = 0
+            if first_failures and not aborted["flag"]:
+                print(f"retrying {len(first_failures)} failed call(s) once",
+                      flush=True)
+                for item in first_failures:
+                    if one(item, attempt=2) is None:  # spend cap reached
+                        break
+                    retried += 1
+            # Anything the cap stopped us retrying is still failed, as is
+            # anything that failed its second attempt (left in retry_queue).
+            still_failed = len(retry_queue) + (len(first_failures) - retried)
+            recovered = retried - len(retry_queue)
     finally:
         if scored_fh is not None:
             scored_fh.close()
 
     print(f"done ok={ok} fail={failed} quar={quarantined} ${cost:.2f}")
+    print(f"retried={retried} recovered={recovered} "
+          f"still_failed={still_failed}")
     print(f"raw {raw_path}")
-    return 0 if failed == 0 else 1
+    return 0 if still_failed == 0 else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -247,6 +304,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--questions", default=None)
+    ap.add_argument("--track", choices=("closed_book", "reasoning_toggle"),
+                    default="closed_book",
+                    help="reasoning_toggle calls only the reasoning-ON arm; "
+                         "the OFF arm is the main run's own rows")
     args = ap.parse_args(argv)
 
     config.load_dotenv()
@@ -263,8 +324,13 @@ def main(argv: list[str] | None = None) -> int:
     models = roster(cfg, include_reference=not args.no_reference)
     model_ids = [m.strip() for m in args.models.split(",")] if args.models else None
     samples = args.samples if args.samples is not None else cfg["sampling"]["samples_per_question"]
-    plan = build_plan(questions, models, samples=samples, limit=args.limit,
-                      model_ids=model_ids, seed=args.seed)
+    if args.track == "reasoning_toggle":
+        plan = build_toggle_plan(questions, cfg, samples=args.samples)
+        if args.limit is not None:
+            plan = plan[:args.limit]  # probe only; never a real toggle run
+    else:
+        plan = build_plan(questions, models, samples=samples, limit=args.limit,
+                          model_ids=model_ids, seed=args.seed)
 
     started = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_id = hashlib.sha256(

@@ -110,6 +110,41 @@ def _by_field(rows: list[dict[str, Any]], field: str) -> dict[str, Any]:
     return out
 
 
+def _track(row: dict[str, Any]) -> str:
+    return row.get("track") or "closed_book"
+
+
+def _cell(row: dict[str, Any]) -> tuple:
+    return (row["question_id"], row["model_id"], row.get("sample_idx"),
+            _track(row), row.get("arm"))
+
+
+def _dedup(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, int]]]:
+    """One row per (question, model, sample, track, arm) cell.
+
+    A transport failure retried once leaves two rows for the same cell. The
+    successful attempt is the measurement; the failed one is kept in raw as
+    the audit trail but must not count twice, and must not count as a
+    quarantine either - a timeout that later succeeded is not a finding.
+    A cell that never succeeded is kept as still_failed, never dropped quietly.
+    """
+    cells: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        cells[_cell(row)].append(row)
+    kept: list[dict[str, Any]] = []
+    counts: dict[str, dict[str, int]] = defaultdict(lambda: {"retried": 0, "still_failed": 0})
+    for key, group in cells.items():
+        group = sorted(group, key=lambda r: r.get("attempt") or 1)
+        succeeded = [r for r in group if r.get("ok") is not False]
+        chosen = succeeded[-1] if succeeded else group[-1]
+        if len(group) > 1:
+            counts[key[1]]["retried"] += 1
+        if not succeeded:
+            counts[key[1]]["still_failed"] += 1
+        kept.append(chosen)
+    return kept, counts
+
+
 def _model_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     usable = _usable(rows)
     cw = sum(1 for r in usable if r.get("confident_wrong"))
@@ -124,8 +159,9 @@ def _model_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     false_refusals = sum(1 for r in numeric if r.get("outcome") == "false_refusal")
     return {
         "n": len(usable),
-        "quarantined": sum(1 for r in rows if r.get("quarantined")
-                           or r.get("outcome") == "quarantined"),
+        "quarantined": sum(1 for r in rows if r.get("ok") is not False
+                           and (r.get("quarantined")
+                                or r.get("outcome") == "quarantined")),
         "confident_wrong": _rate(cw, len(usable)),
         "numeric_accuracy": _rate(numeric_correct, len(numeric)),
         "fabrication": _rate(fabricated, len(fp)),
@@ -151,13 +187,67 @@ def _model_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def summarise(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    # The headline is closed-book only. Toggle rows reuse a main-run model id,
+    # so without this filter they would silently fold into that model's rates.
+    main, counts = _dedup([r for r in rows if _track(r) == "closed_book"])
     by_model: dict[str, list] = defaultdict(list)
-    for row in rows:
+    for row in main:
         by_model[row["model_id"]].append(row)
+    models = {}
+    for mid, group in sorted(by_model.items()):
+        block = _model_summary(group)
+        block.update(counts.get(mid, {"retried": 0, "still_failed": 0}))
+        models[mid] = block
+    toggle_models = sorted({r["model_id"] for r in rows
+                            if _track(r) == "reasoning_toggle"})
     return {
         "n_rows": len(rows),
-        "models": {mid: _model_summary(group)
-                   for mid, group in sorted(by_model.items())},
+        "models": models,
+        "toggle": (summarise_toggle(rows, model_id=toggle_models[0])
+                   if toggle_models else None),
+    }
+
+
+def summarise_toggle(rows: list[dict[str, Any]], *, model_id: str) -> dict[str, Any] | None:
+    """Spec 7.7: the same model and cells, reasoning on vs off.
+
+    The OFF arm is the main run's rows for exactly the cells the ON arm
+    covered, so both arms answer identical (question, sample) pairs on the same
+    run date. Everything else about the main run is excluded.
+    """
+    on, _ = _dedup([r for r in rows if _track(r) == "reasoning_toggle"
+                    and r["model_id"] == model_id])
+    if not on:
+        return None
+    wanted = {(r["question_id"], r.get("sample_idx")) for r in on}
+    off, _ = _dedup([r for r in rows if _track(r) == "closed_book"
+                     and r["model_id"] == model_id
+                     and (r["question_id"], r.get("sample_idx")) in wanted])
+
+    def arm(group):
+        block = _model_summary(group)
+        usable = _usable(group)
+        block["abstention"] = _rate(
+            sum(1 for r in usable if r.get("outcome") == "abstained"), len(usable))
+        return block
+
+    off_by = {(r["question_id"], r.get("sample_idx")): r for r in _usable(off)}
+    on_by = {(r["question_id"], r.get("sample_idx")): r for r in _usable(on)}
+    paired = sorted(set(off_by) & set(on_by))
+    flips = {"wrong_to_right": 0, "right_to_wrong": 0}
+    for key in paired:
+        before, after = off_by[key].get("correct"), on_by[key].get("correct")
+        if before is False and after is True:
+            flips["wrong_to_right"] += 1
+        elif before is True and after is False:
+            flips["right_to_wrong"] += 1
+    return {
+        "model_id": model_id,
+        "questions": len({q for q, _ in wanted}),
+        "paired_cells": len(paired),
+        "off": arm(off),
+        "on": arm(on),
+        "flips": flips,
     }
 
 
@@ -196,6 +286,34 @@ def render_report(summary: dict[str, Any]) -> str:
             f"confidence AUC {None if auc is None else round(auc, 3)}, "
             f"behavioral {None if block['behavioral'] is None else round(block['behavioral'], 3)}"
         )
+    lines += ["", "## Coverage", ""]
+    for model_id, block in summary["models"].items():
+        lines.append(
+            f"- **{model_id}**: {block['n']} scored, "
+            f"{block.get('retried', 0)} retried once, "
+            f"{block.get('still_failed', 0)} still failed, "
+            f"{block.get('quarantined', 0)} quarantined (substitution)"
+        )
+    toggle = summary.get("toggle")
+    if toggle:
+        lines += [
+            "", f"## Reasoning toggle ({toggle['model_id']})", "",
+            f"{toggle['questions']} questions, {toggle['paired_cells']} paired "
+            "(question, sample) cells per arm. The off arm is the main run's own "
+            "rows for these cells. Small n: directional only.",
+            "",
+            "| Arm | n | Confident-wrong | Numeric accuracy | Abstention | ECE |",
+            "|---|---:|---|---|---|---|",
+        ]
+        for name in ("off", "on"):
+            b = toggle[name]
+            lines.append(
+                f"| reasoning {name} | {b['n']} | {_pct(b['confident_wrong'])} | "
+                f"{_pct(b['numeric_accuracy'])} | {_pct(b['abstention'])} | "
+                f"{None if b['ece'] is None else round(b['ece'], 3)} |")
+        f = toggle["flips"]
+        lines += ["", f"Paired flips: {f['wrong_to_right']} wrong→right, "
+                      f"{f['right_to_wrong']} right→wrong."]
     return "\n".join(lines) + "\n"
 
 

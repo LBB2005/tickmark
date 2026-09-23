@@ -129,8 +129,15 @@ reference_line:
 reasoning_toggle:
   model_id: claude-opus-5
   subset_size: 60
-  on: {enabled: true}
-  off: {enabled: false}
+  seed: 0
+  # Quoted: YAML 1.1 reads a bare `on:` / `off:` key as the boolean True/False.
+  "on": {enabled: true}
+  "off": {enabled: false}
+  # Anthropic requires max_tokens above the reasoning budget, which OpenRouter
+  # derives from max_tokens itself; the main run's 700 leaves no room to think.
+  # The off arm keeps 700. Disclosed in METHODOLOGY; claude-opus-5's longest
+  # reasoning-off answer in run dfba4ccd2d88 was 226 tokens, so 700 is not binding.
+  max_tokens_on: 4000
 
 sampling:
   samples_per_question: 3
