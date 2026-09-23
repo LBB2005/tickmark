@@ -166,3 +166,41 @@ def test_a_restatement_question_asks_for_the_most_recently_reported_figure():
 def test_a_non_restatement_question_does_not_say_most_recently_reported():
     text = prompts.question_text(record(), ticker="BAX")
     assert "most recently reported" not in text.lower()
+
+
+def test_boundary_questions_disambiguate_recast_figures():
+    """post_cutoff_boundary gold comes from a filing later than the period, so
+    the figure may have been recast since. Round-2 verification found 12 of 98
+    boundary records naming a value absent from the company's own as-filed
+    filing. Without this phrase a model answering the as-filed figure is scored
+    confident-wrong while being defensibly right -- inflating the exact headline
+    this benchmark reports.
+    """
+    record = {
+        "company": "HONEYWELL INTERNATIONAL INC",
+        "concept": "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "fiscal_period": "the three months ended March 31, 2024",
+        "category": "post_cutoff_boundary",
+    }
+    assert prompts.question_text(record).startswith("As most recently reported by")
+
+
+def test_boundary_and_restatement_share_one_wording():
+    """The phrase is applied to the whole boundary category, not only the
+    recast-divergent records. Wording that varied with whether a record happened
+    to be recast would make the answer legible from the question -- spec 6.1.
+    """
+    base = {
+        "company": "3M CO",
+        "concept": "Revenues",
+        "fiscal_period": "the three months ended March 31, 2024",
+    }
+    boundary = prompts.question_text({**base, "category": "post_cutoff_boundary"})
+    restated = prompts.question_text({**base, "category": "restatement"})
+    assert boundary == restated
+
+    # ...and a plain answerable question must NOT carry it, or the phrase stops
+    # disambiguating anything.
+    buried = prompts.question_text({**base, "category": "buried"})
+    assert not buried.startswith("As most recently reported")
+    assert buried.startswith("What was 3M CO's")

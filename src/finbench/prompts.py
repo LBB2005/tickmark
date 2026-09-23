@@ -118,6 +118,20 @@ def _segment_phrase(record: dict[str, Any]) -> str:
     return f" in the {bare} segment"
 
 
+# Round-2 verification measured this: 12 of 98 post_cutoff_boundary records name a
+# figure that does NOT appear in the company's own as-filed filing for that period,
+# because a later separation recast it (GE/Vernova, 3M/Solventum, DuPont/Qnity,
+# Baxter/Vantive, Fortive/Ralliant, BD/Waters, Honeywell/Solstice, AIG, News Corp).
+# Without "As most recently reported", a model answering the as-filed figure is
+# marked wrong while being defensibly right -- and it is marked wrong in the
+# direction that inflates confident-wrong, the headline this project reports.
+#
+# The phrase is applied to the WHOLE category, not just the 12. Wording that varied
+# with whether a record happened to be recast would be a tell, and spec 6.1 already
+# forbids a category being legible from its wording.
+RECAST_AMBIGUOUS = ("restatement", "post_cutoff_boundary")
+
+
 def question_text(record: dict[str, Any], ticker: str | None = None) -> str:
     """Render one gold record as the question an analyst would type."""
     concept = record["concept"]
@@ -126,7 +140,9 @@ def question_text(record: dict[str, Any], ticker: str | None = None) -> str:
 
     company = display_company(record, ticker)
     period = record["fiscal_period"]
-    restated = record.get("category") == "restatement"
+    # Both categories source gold from a filing later than the period itself,
+    # so both can name a figure the company has since recast. See RECAST_AMBIGUOUS.
+    restated = record.get("category") in RECAST_AMBIGUOUS
 
     if concept == "EntityCommonStockSharesOutstanding":
         body = (

@@ -1,0 +1,14 @@
+question_id,company,concept,period,gold_value,as_filed_value,as_filed_tag,as_filed_filed,delta_pct,in_sample
+pcb-AIG-2024-03-31,"AMERICAN INTERNATIONAL GROUP, INC.",Revenues,"the three months ended March 31, 2024",6763000000,12578000000,Revenues,2024-05-02,-46.2,yes
+pcb-BAX-2024-03-31,BAXTER INTERNATIONAL INC,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2024",2490000000,3592000000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-05-02,-30.7,yes
+pcb-BDX-2025-03-31,BECTON DICKINSON & CO,Revenues,"the three months ended March 31, 2025",4480000000,5272000000,Revenues,2025-05-01,-15.0,no
+pcb-DD-2024-03-31,"DuPont de Nemours, Inc.",RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2024",1599000000,2931000000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-05-01,-45.4,yes
+pcb-DD-2025-03-31,"DuPont de Nemours, Inc.",RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2025",1612000000,3066000000,RevenueFromContractWithCustomerExcludingAssessedTax,2025-05-02,-47.4,no
+pcb-FTV-2024-03-29,Fortive Corp,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 29, 2024",984200000,1524500000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-04-24,-35.4,no
+pcb-FTV-2025-03-28,Fortive Corp,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 28, 2025",993100000,1474200000,RevenueFromContractWithCustomerExcludingAssessedTax,2025-05-01,-32.6,no
+pcb-GE-2024-03-31,GENERAL ELECTRIC CO,Revenues,"the three months ended March 31, 2024",8955000000,16053000000,Revenues,2024-04-23,-44.2,no
+pcb-HON-2024-03-31,HONEYWELL INTERNATIONAL INC,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2024",8157000000,9105000000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-04-25,-10.4,yes
+pcb-HON-2025-03-31,HONEYWELL INTERNATIONAL INC,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2025",8925000000,9822000000,RevenueFromContractWithCustomerExcludingAssessedTax,2025-04-29,-9.1,no
+pcb-MMM-2024-03-31,3M CO,RevenueFromContractWithCustomerExcludingAssessedTax,"the three months ended March 31, 2024",6016000000,8003000000,Revenues,2024-04-30,-24.8,no
+pcb-NWSA-2024-03-31,NEWS CORP,RevenueFromContractWithCustomerExcludingAssessedTax,"the nine months ended March 31, 2024",6160000000,7508000000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-05-09,-18.0,no
+pcb-WDC-2024-03-29,WESTERN DIGITAL CORP,RevenueFromContractWithCustomerExcludingAssessedTax,"the nine months ended March 29, 2024",4313000000,9239000000,RevenueFromContractWithCustomerExcludingAssessedTax,2024-04-30,-53.3,no
