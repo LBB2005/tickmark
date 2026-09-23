@@ -136,6 +136,48 @@ def build_toggle_plan(
     ]
 
 
+def cell_key(question_id: str, model_id: str, sample_idx: int,
+             track: str | None = None, arm: str | None = None) -> tuple:
+    return (question_id, model_id, sample_idx, track or "closed_book", arm)
+
+
+def _item_key(item: dict[str, Any]) -> tuple:
+    return cell_key(item["question"]["question_id"], item["model"]["id"],
+                    item["sample_idx"], item.get("track"), item.get("arm"))
+
+
+def out_of_credits(result: Any) -> bool:
+    """A 402 is the account running dry, not the model or the network.
+
+    Nothing about it improves on a retry, and every further call will fail the
+    same way - run d849113d369c sent ~5,000 of them before this existed.
+    """
+    return (not result.ok) and str(result.error or "").startswith("402")
+
+
+def resume_plan(
+    plan: list[dict[str, Any]], rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[tuple, int]]:
+    """The part of `plan` an interrupted run has not yet answered.
+
+    A cell is done once any attempt came back ok - including a substitution
+    quarantine, which is a result, not a gap. Failed cells are re-run, with
+    attempt numbers continuing from where the run stopped so the raw file stays
+    a complete, ordered history of every call made.
+    """
+    done: set[tuple] = set()
+    last: dict[tuple, int] = {}
+    for row in rows:
+        key = cell_key(row["question_id"], row["model_id"], row["sample_idx"],
+                       row.get("track"), row.get("arm"))
+        last[key] = max(last.get(key, 0), row.get("attempt") or 1)
+        if row.get("ok"):
+            done.add(key)
+    remaining = [item for item in plan if _item_key(item) not in done]
+    next_attempt = {key: n + 1 for key, n in last.items() if key not in done}
+    return remaining, next_attempt
+
+
 def _print_plan(plan: list[dict[str, Any]]) -> None:
     counts: dict[str, int] = {}
     for item in plan:
@@ -156,6 +198,8 @@ def execute(
     defaults: dict[str, Any] | None = None,
     scored_path: pathlib.Path | None = None,
     concurrency: int = 1,
+    append: bool = False,
+    attempts: dict[tuple, int] | None = None,
 ) -> int:
     """Run the plan. Default concurrency is 1 so the spend cap is exact."""
     defaults = defaults or config.models().get("defaults") or {
@@ -175,17 +219,21 @@ def execute(
     cost = 0.0
     ok = failed = quarantined = 0
     lock = threading.Lock()
-    aborted = {"flag": False}
+    aborted = {"flag": False, "reason": None}
+    attempts = attempts or {}
 
     scored_fh = None
     if scored_path is not None:
-        scored_fh = scored_path.open("w", encoding="utf-8")
+        scored_fh = scored_path.open("a" if append else "w", encoding="utf-8")
 
-    def one(item: dict[str, Any], attempt: int = 1) -> Any:
+    def one(item: dict[str, Any], attempt: int | None = None) -> Any:
+        if attempt is None:
+            attempt = attempts.get(_item_key(item), 1)
         nonlocal cost, ok, failed, quarantined
         with lock:
             if aborted["flag"] or cost >= spend_cap:
                 aborted["flag"] = True
+                aborted["reason"] = aborted["reason"] or f"spend cap ${spend_cap:.2f} reached"
                 return None
         model = item["model"]
         question = item["question"]
@@ -234,21 +282,24 @@ def execute(
                       f"quar={quarantined} ${cost:.2f}", flush=True)
             if cost >= spend_cap:
                 aborted["flag"] = True
-            if not result.ok:
+                aborted["reason"] = aborted["reason"] or f"spend cap ${spend_cap:.2f} reached"
+            if out_of_credits(result):
+                aborted["flag"] = True
+                aborted["reason"] = "OpenRouter credits exhausted (402)"
+            elif not result.ok:
                 retry_queue.append(item)
         return result
 
     retry_queue: list[dict[str, Any]] = []
 
     try:
-        with gzip.open(raw_path, "wt", encoding="utf-8") as raw_fh:
+        with gzip.open(raw_path, "at" if append else "wt", encoding="utf-8") as raw_fh:
             workers = max(1, concurrency)
             if workers == 1:
                 for item in plan:
                     one(item)
                     if aborted["flag"]:
-                        print(f"spend cap ${spend_cap:.2f} reached; aborting",
-                              flush=True)
+                        print(f"{aborted['reason']}; aborting", flush=True)
                         break
             else:
                 with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -256,8 +307,7 @@ def execute(
                     for future in as_completed(futures):
                         future.result()
                 if aborted["flag"]:
-                    print(f"spend cap ${spend_cap:.2f} reached; aborting",
-                          flush=True)
+                    print(f"{aborted['reason']}; aborting", flush=True)
 
             # One retry, for transport failures only (ok=False: timeouts,
             # dropped connections). A substitution quarantine is ok=True and is
@@ -271,7 +321,7 @@ def execute(
                 print(f"retrying {len(first_failures)} failed call(s) once",
                       flush=True)
                 for item in first_failures:
-                    if one(item, attempt=2) is None:  # spend cap reached
+                    if one(item, attempt=attempts.get(_item_key(item), 1) + 1) is None:
                         break
                     retried += 1
             # Anything the cap stopped us retrying is still failed, as is
@@ -285,8 +335,11 @@ def execute(
     print(f"done ok={ok} fail={failed} quar={quarantined} ${cost:.2f}")
     print(f"retried={retried} recovered={recovered} "
           f"still_failed={still_failed}")
+    if aborted["reason"]:
+        print(f"ABORTED: {aborted['reason']}. Continue with: "
+              f"--resume {raw_path.name.split('.')[0]}")
     print(f"raw {raw_path}")
-    return 0 if still_failed == 0 else 1
+    return 0 if still_failed == 0 and not aborted["reason"] else 1
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -304,6 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--concurrency", type=int, default=4)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--questions", default=None)
+    ap.add_argument("--resume", default=None, metavar="RUN_ID",
+                    help="continue an interrupted run: re-plan with the same "
+                         "args, skip cells already answered, append to its files")
     ap.add_argument("--track", choices=("closed_book", "reasoning_toggle"),
                     default="closed_book",
                     help="reasoning_toggle calls only the reasoning-ON arm; "
@@ -332,10 +388,29 @@ def main(argv: list[str] | None = None) -> int:
         plan = build_plan(questions, models, samples=samples, limit=args.limit,
                           model_ids=model_ids, seed=args.seed)
 
-    started = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_id = hashlib.sha256(
-        f"{started}|{config.config_hash()}|{len(plan)}".encode()
-    ).hexdigest()[:12]
+    attempts: dict[tuple, int] = {}
+    if args.resume:
+        run_id = args.resume
+        prior_path = RAW_DIR / f"{run_id}.jsonl.gz"
+        if not prior_path.exists():
+            print(f"no raw file for run {run_id}", file=sys.stderr)
+            return 1
+        with gzip.open(prior_path, "rt", encoding="utf-8") as fh:
+            prior = [json.loads(line) for line in fh if line.strip()]
+        hashes = {r.get("config_hash") for r in prior}
+        if hashes != {config.config_hash()}:
+            print(f"refusing to resume: run {run_id} used config {hashes}, "
+                  f"current is {config.config_hash()}", file=sys.stderr)
+            return 1
+        planned = len(plan)
+        plan, attempts = resume_plan(plan, prior)
+        print(f"resume {run_id}: {planned - len(plan)} of {planned} cells "
+              f"already answered, {len(plan)} to go")
+    else:
+        started = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        run_id = hashlib.sha256(
+            f"{started}|{config.config_hash()}|{len(plan)}".encode()
+        ).hexdigest()[:12]
     print(f"run {run_id}  config_hash={config.config_hash()}")
 
     cutoffs = load_cutoffs()
@@ -350,6 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             plan, client=client, raw_path=raw_path, spend_cap=args.spend_cap,
             dry_run=False, cutoffs=cutoffs, defaults=cfg["defaults"],
             scored_path=scored_path, concurrency=args.concurrency,
+            append=bool(args.resume), attempts=attempts,
         )
 
 

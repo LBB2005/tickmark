@@ -137,7 +137,10 @@ def _dedup(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, 
         group = sorted(group, key=lambda r: r.get("attempt") or 1)
         succeeded = [r for r in group if r.get("ok") is not False]
         chosen = succeeded[-1] if succeeded else group[-1]
-        if len(group) > 1:
+        # Only a transport failure makes a retry. A 402 is the account running
+        # dry; the cell re-run on --resume was never retried in that sense.
+        if any(r.get("ok") is False and not str(r.get("error") or "").startswith("402")
+               for r in group[:-1]):
             counts[key[1]]["retried"] += 1
         if not succeeded:
             counts[key[1]]["still_failed"] += 1

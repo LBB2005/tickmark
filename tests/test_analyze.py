@@ -141,3 +141,18 @@ def test_toggle_pairs_on_arm_with_main_run_off_arm_on_same_cells():
 
 def test_no_toggle_rows_means_no_toggle_section():
     assert analyze.summarise_toggle([row()], model_id="claude-opus-5") is None
+
+
+def test_credit_exhaustion_is_not_counted_as_a_retry():
+    # 402s are an account problem, not a measurement event. A cell that hit a
+    # 402 and then succeeded on --resume was never "retried" in the sense the
+    # Coverage section reports.
+    rows = [
+        row(ok=False, quarantined=True, correct=None, outcome="quarantined",
+            attempt=1, error='402: {"error":{"message":"exceed your available credits"}}'),
+        row(ok=True, attempt=2),
+    ]
+    block = analyze.summarise(rows)["models"]["aa"]
+    assert block["n"] == 1
+    assert block["retried"] == 0
+    assert block["still_failed"] == 0

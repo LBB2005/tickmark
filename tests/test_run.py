@@ -229,3 +229,62 @@ def test_toggle_subset_is_reproducible_and_category_stratified():
     assert [i["question"]["question_id"] for i in a] == \
            [i["question"]["question_id"] for i in b]
     assert len({i["question"]["category"] for i in a}) >= 4
+
+
+def _out_of_credits():
+    return CallResult(
+        ok=False, model_id="aa", requested_slug="lab/a", temperature_sent=None,
+        resolved_model=None, resolved_provider=None, quarantined=True,
+        quarantine_reason="http_error", text=None, prompt_tokens=None,
+        completion_tokens=None, reasoning_tokens=None, cost_usd=None,
+        latency_ms=170,
+        error='402: {"error":{"message":"This request would exceed your available credits"}}',
+    )
+
+
+def test_out_of_credits_stops_the_run_and_is_never_retried(tmp_path):
+    # Run d849113d369c kept firing ~5,000 calls after the account ran dry, and
+    # the retry pass re-sent 2,555 of them. A 402 cannot succeed on a retry.
+    client = Scripted({"q1": [_out_of_credits]})
+    plan = run.build_plan([_q("q0"), _q("q1"), _q("q2"), _q("q3")], [MODEL_A], samples=1)
+    raw = tmp_path / "raw.jsonl.gz"
+    code = run.execute(plan, client=client, raw_path=raw, spend_cap=10,
+                       dry_run=False, cutoffs={})
+    assert len(client.calls) == 2          # q0 ok, q1 402, then stop
+    assert code == 1
+    assert all(r["attempt"] == 1 for r in _rows(raw))
+
+
+def test_resume_skips_cells_that_already_succeeded():
+    plan = run.build_plan([_q("q0"), _q("q1")], [MODEL_A, MODEL_B], samples=2)
+    done = [
+        {"question_id": "q0", "model_id": "aa", "sample_idx": 0, "ok": True,
+         "track": "closed_book", "arm": None, "attempt": 1},
+        {"question_id": "q0", "model_id": "aa", "sample_idx": 1, "ok": False,
+         "track": "closed_book", "arm": None, "attempt": 2},
+        {"question_id": "q1", "model_id": "bb", "sample_idx": 1, "ok": True,
+         "track": "closed_book", "arm": None, "attempt": 1},
+    ]
+    remaining, next_attempt = run.resume_plan(plan, done)
+    cells = {(i["question"]["question_id"], i["model"]["id"], i["sample_idx"])
+             for i in remaining}
+    assert len(remaining) == 6
+    assert ("q0", "aa", 0) not in cells and ("q1", "bb", 1) not in cells
+    assert ("q0", "aa", 1) in cells            # failed cells are re-run
+    assert next_attempt[("q0", "aa", 1, "closed_book", None)] == 3
+
+
+def test_resume_appends_to_the_same_run_files(tmp_path):
+    raw = tmp_path / "raw.jsonl.gz"
+    client = Scripted({"q1": [_out_of_credits]})
+    plan = run.build_plan([_q("q0"), _q("q1")], [MODEL_A], samples=1)
+    run.execute(plan, client=client, raw_path=raw, spend_cap=10,
+                dry_run=False, cutoffs={})
+    remaining, attempts = run.resume_plan(plan, _rows(raw))
+    run.execute(remaining, client=Scripted({}), raw_path=raw, spend_cap=10,
+                dry_run=False, cutoffs={}, append=True, attempts=attempts)
+    rows = _rows(raw)
+    q1 = [r for r in rows if r["question_id"] == "q1"]
+    assert [r["attempt"] for r in q1] == [1, 2]
+    assert q1[-1]["ok"] is True
+    assert len([r for r in rows if r["question_id"] == "q0"]) == 1
