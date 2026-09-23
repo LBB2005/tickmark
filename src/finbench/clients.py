@@ -86,11 +86,16 @@ class OpenRouterClient:
             raise Transient(f"{response.status_code}: {response.text[:200]}")
         return response
 
-    def build_body(self, model: dict[str, Any], prompt: str, *,
-                   temperature: float, max_tokens: int) -> dict[str, Any]:
+    def build_body(self, model: dict[str, Any], prompt: str | None = None, *,
+                   temperature: float, max_tokens: int,
+                   messages: list[dict[str, str]] | None = None) -> dict[str, Any]:
+        if messages is None:
+            if prompt is None:
+                raise ValueError("prompt or messages is required")
+            messages = [{"role": "user", "content": prompt}]
         body: dict[str, Any] = {
             "model": model["slug"],
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "max_tokens": max_tokens,
             "provider": {
                 "only": model["provider_tags"],
@@ -116,10 +121,11 @@ class OpenRouterClient:
             prompt_tokens=None, completion_tokens=None, reasoning_tokens=None,
             cost_usd=None, latency_ms=latency, error=error[:500])
 
-    def call(self, *, model: dict[str, Any], prompt: str,
+    def call(self, *, model: dict[str, Any], prompt: str | None = None,
+             messages: list[dict[str, str]] | None = None,
              temperature: float = 0.0, max_tokens: int = 700) -> CallResult:
         body = self.build_body(model, prompt, temperature=temperature,
-                               max_tokens=max_tokens)
+                               max_tokens=max_tokens, messages=messages)
         start = time.perf_counter()
         try:
             response = self._post(body)

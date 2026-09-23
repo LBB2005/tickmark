@@ -126,25 +126,38 @@ def question_text(record: dict[str, Any], ticker: str | None = None) -> str:
 
     company = display_company(record, ticker)
     period = record["fiscal_period"]
+    restated = record.get("category") == "restatement"
 
     if concept == "EntityCommonStockSharesOutstanding":
-        return (
-            f"How many shares of common stock did {company} have outstanding "
+        body = (
+            f"how many shares of common stock did {company} have outstanding "
             f"{period}?"
         )
+        if restated:
+            # Same load-bearing phrase as the numeric restatement template:
+            # the superseded figure is what the model almost certainly memorised.
+            return f"As most recently reported by {company}, {body}"
+        return body[0].upper() + body[1:]
 
     phrase = CONCEPT_PHRASES[concept]
-    return f"What was {company}'s {phrase}{_segment_phrase(record)} for {period}?"
+    tail = f"{phrase}{_segment_phrase(record)} for {period}?"
+    if restated:
+        # Spec 6.1: "As most recently reported" is what makes answering the
+        # original figure a miss rather than a defensible reading.
+        return f"As most recently reported by {company}, what was {tail}"
+    return f"What was {company}'s {tail}"
 
 
 def build_messages(
     record: dict[str, Any], ticker: str | None = None
 ) -> list[dict[str, str]]:
-    """The two-message payload sent to every model for one question."""
+    """The two-message payload sent to every model for one question.
+
+    Prefer a frozen `question` field when present so a later wording change
+    cannot silently rewrite what was asked.
+    """
+    text = record.get("question") or question_text(record, ticker)
     return [
         {"role": "system", "content": SYSTEM},
-        {
-            "role": "user",
-            "content": f"{question_text(record, ticker)}\n\n{_INSTRUCTIONS}",
-        },
+        {"role": "user", "content": f"{text}\n\n{_INSTRUCTIONS}"},
     ]

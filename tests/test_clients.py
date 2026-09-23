@@ -76,6 +76,14 @@ def test_clean_call_is_not_quarantined(client, monkeypatch):
     assert result.text == "answer" and result.cost_usd == 0.01
 
 
+def test_messages_are_sent_when_provided(client):
+    messages = [{"role": "system", "content": "sys"},
+                {"role": "user", "content": "hi"}]
+    body = client.build_body(MODEL, temperature=0.0, max_tokens=10,
+                             messages=messages)
+    assert body["messages"] == messages
+
+
 def test_http_error_becomes_a_failed_result_not_an_exception(client, monkeypatch):
     class R:
         status_code = 404

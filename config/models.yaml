@@ -36,7 +36,8 @@ models:
     native_search: false
     price_in_per_mtok: 2.00
     price_out_per_mtok: 10.00
-    stated_cutoff: null      # filled by the cutoff-elicitation probe, sec 7.4
+    stated_cutoff: "2024-06"   # cutoff probe 2026-09-02, stable
+    cutoff_stable: true
 
   - id: claude-opus-5
     slot: 2
@@ -50,7 +51,8 @@ models:
     native_search: false
     price_in_per_mtok: 5.00
     price_out_per_mtok: 25.00
-    stated_cutoff: null
+    stated_cutoff: "2025-01"
+    cutoff_stable: true
 
   # PREVIEW endpoint: Google can update it silently. Section 7.3's requirement
   # to record the resolved model string and run date on every row is the
@@ -67,7 +69,8 @@ models:
     native_search: false
     price_in_per_mtok: 2.00
     price_out_per_mtok: 12.00
-    stated_cutoff: null
+    stated_cutoff: "2025-01"
+    cutoff_stable: true
 
   - id: grok-4.6
     slot: 4
@@ -81,7 +84,8 @@ models:
     native_search: false
     price_in_per_mtok: 2.00
     price_out_per_mtok: 6.00
-    stated_cutoff: null
+    stated_cutoff: "2024-10"   # modal; samples also returned 2023-12
+    cutoff_stable: false
 
   # SLOT 5 - the cheap tier of slot 1's OWN generation (5.6). Same generation
   # matters: pairing a cheap model against a flagship from a different vintage
@@ -100,7 +104,8 @@ models:
     native_search: false
     price_in_per_mtok: 0.20
     price_out_per_mtok: 1.20
-    stated_cutoff: null
+    stated_cutoff: "2024-06"
+    cutoff_stable: true
 
 # Reported in its OWN row, clearly marked retrieval-augmented. Including it in
 # the closed-book column would measure "has a search engine", not recall.
@@ -116,7 +121,8 @@ reference_line:
     native_search: true
     price_in_per_mtok: 3.00
     price_out_per_mtok: 15.00
-    stated_cutoff: null
+    stated_cutoff: "2025-08"
+    cutoff_stable: true
 
 # Section 7.7. Run on Anthropic deliberately: the tier pair is OpenAI, so the
 # two experiments sit in different families and cannot confound each other.

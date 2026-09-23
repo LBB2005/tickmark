@@ -387,6 +387,16 @@ in code, and was committed before `results/` contained anything.
 <!-- Human-verified count filled in when the sheet is applied; abstention
      classification agreement rate on a random 100 at Milestone 4. -->
 
+Gold is hashed at `data/GOLD.sha256`. No record is marked `verification: human`
+yet: round 1 is evidence for the sheet, not the sheet. Covenant questions are
+not in the 358 — they are a manual bucket and are deferred so the closed-book
+track can run.
+
+Questions are frozen at `data/questions.jsonl` (`data/QUESTIONS.sha256`).
+Broken questions found after this point are excluded and reported, never
+edited in place. If gold changes after the human pass, rebuild and re-hash
+before any published model run.
+
 ### Round 1: evidence pass, and the gold rebuild it forced
 
 Before any human sign-off, an AI assistant checked all 78 sheet rows against

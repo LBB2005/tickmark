@@ -147,3 +147,22 @@ def test_a_segment_label_that_is_only_boilerplate_is_a_hard_error():
     with pytest.raises(ValueError):
         prompts.question_text(record(segment_label="Reportable Segment"),
                               ticker="CVNA")
+
+
+def test_a_restatement_question_asks_for_the_most_recently_reported_figure():
+    # Spec 6.1: without this phrase a model answering the superseded figure
+    # has a legitimate defense, and a reviewer will say so.
+    text = prompts.question_text(
+        record(category="restatement", concept="Revenues",
+               segment_label=None, segment_axis=None,
+               fiscal_period="the fiscal year ended December 31, 2019"),
+        ticker="GE",
+    )
+    assert text.startswith("As most recently reported by")
+    assert "revenue" in text.lower()
+    assert "the fiscal year ended December 31, 2019" in text
+
+
+def test_a_non_restatement_question_does_not_say_most_recently_reported():
+    text = prompts.question_text(record(), ticker="BAX")
+    assert "most recently reported" not in text.lower()

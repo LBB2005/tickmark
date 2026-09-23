@@ -19,6 +19,7 @@ venv/
 # responses are excluded.
 data/cache/
 results/raw/
+results/scored/
 .ipynb_checkpoints/
 
 # Tooling
