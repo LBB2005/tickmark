@@ -111,14 +111,14 @@ wording, the benchmark would measure trick detection instead of recall.
 ## How it works
 
 ```mermaid
-flowchart LR
-    A[SEC EDGAR<br/>companyfacts + notes data sets] --> B[Gold records<br/>358, with source accession]
-    B --> C[Frozen questions<br/>hashed]
-    C --> D[OpenRouter<br/>provider-pinned, no fallbacks]
-    D --> E[Raw responses<br/>gzipped, flushed per call]
-    E --> F[Scoring<br/>frozen rules, per-model cutoff]
-    F --> G[Analysis<br/>Wilson intervals]
-    B -.-> H[Human verification<br/>seeded sample]
+flowchart TD
+    A["SEC EDGAR: companyfacts XBRL + notes data sets"] --> B["358 gold records, each with its source accession"]
+    B --> H["Human verification of a seeded sample: 78/78"]
+    B --> C["Frozen question set, SHA-256 hashed"]
+    C --> D["OpenRouter: provider-pinned, no fallbacks, substitutions quarantined"]
+    D --> E["Raw responses, flushed per call; retry once; resumable"]
+    E --> F["Scoring: frozen rules, per-model training cutoff"]
+    F --> G["Analysis: rates with 90% Wilson intervals"]
 ```
 
 1. **Gold from primary sources.** Figures come from SEC `companyfacts` XBRL and,
