@@ -1,4 +1,7 @@
-"""Score a raw run into results/summary.json and results/REPORT.md."""
+"""Score a run into results/summary.json and results/TABLES.md.
+
+results/REPORT.md is written by hand from these and is never overwritten.
+"""
 from __future__ import annotations
 
 import argparse
@@ -27,7 +30,7 @@ def main(argv: list[str] | None = None) -> int:
     out = pathlib.Path(args.out) if args.out else (config.ROOT / "results")
     analyze.write_outputs(summary, out)
     print(analyze.render_report(summary))
-    print(f"wrote {out / 'summary.json'} and {out / 'REPORT.md'}")
+    print(f"wrote {out / 'summary.json'} and {out / 'TABLES.md'}")
     return 0
 
 

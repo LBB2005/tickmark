@@ -156,3 +156,46 @@ def test_credit_exhaustion_is_not_counted_as_a_retry():
     assert block["n"] == 1
     assert block["retried"] == 0
     assert block["still_failed"] == 0
+
+
+def test_threshold_breakdown_never_counts_an_abstention_as_confident_wrong():
+    # An abstention at confidence 100 is a model sure that declining is right.
+    # Counting it as "confident wrong" made Gemini read 29.2% at >=90 while its
+    # headline confident-wrong rate was 0.2%.
+    rows = [
+        row(question_id="a", outcome="false_refusal", correct=False,
+            confident_wrong=False, confidence=100),
+        row(question_id="b", outcome="wrong", correct=False,
+            confident_wrong=True, confidence=95),
+    ]
+    at = analyze.summarise(rows)["models"]["aa"]["confident_wrong_at"]
+    assert at["90"]["k"] == 1
+
+
+def test_threshold_breakdown_at_the_frozen_threshold_equals_the_headline():
+    from finbench.scoring import DEFAULT_CONFIDENT_WRONG
+    rows = [
+        row(question_id="a", outcome="wrong", correct=False, confident_wrong=True, confidence=80),
+        row(question_id="b", outcome="fabricated", correct=False, confident_wrong=True,
+            confidence=99, bucket="false_premise", category="false_premise"),
+        row(question_id="c", outcome="leaked_post_cutoff", correct=False,
+            confident_wrong=True, confidence=90, bucket="must_abstain"),
+        row(question_id="d", outcome="wrong", correct=False, confident_wrong=False, confidence=40),
+        row(question_id="e", outcome="false_refusal", correct=False, confidence=100),
+        row(question_id="f", outcome="abstained", correct=True, confidence=100,
+            bucket="must_abstain"),
+    ]
+    block = analyze.summarise(rows)["models"]["aa"]
+    t = DEFAULT_CONFIDENT_WRONG
+    manual = sum(1 for r in rows if r["confident_wrong"])
+    assert block["confident_wrong"]["k"] == manual == 3
+    # 75 is in CONFIDENT_THRESHOLDS, so the breakdown must reproduce it exactly
+    assert block["confident_wrong_at"][str(t)]["k"] == manual
+
+
+def test_scale_error_is_a_committed_wrong_answer_in_the_breakdown():
+    # scoring marks a confident scale error confident_wrong (klass != correct);
+    # the breakdown must agree or the two diverge on the first 1000x answer.
+    rows = [row(outcome="scale_error", correct=False, confident_wrong=True, confidence=90)]
+    block = analyze.summarise(rows)["models"]["aa"]
+    assert block["confident_wrong_at"]["75"]["k"] == block["confident_wrong"]["k"] == 1

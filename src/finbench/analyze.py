@@ -13,6 +13,9 @@ from typing import Any
 from . import stats
 
 CONFIDENT_THRESHOLDS = (50, 75, 90)
+# Outcomes in which the model gave an answer and it was wrong - the same set
+# scoring.grade can mark confident_wrong.
+ANSWERED_WRONG = {"wrong", "scale_error", "fabricated", "leaked_post_cutoff"}
 BEHAVIORAL_MIN = 75
 BEHAVIORAL_WRONG = 3
 BEHAVIORAL_CORRECT = 1
@@ -178,9 +181,14 @@ def _model_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "brier": _brier(usable),
         "confidence_auc": confidence_auc(usable),
         "behavioral": _behavioral(usable),
+        # Only outcomes where the model committed to an answer. `correct is
+        # False` also covers false refusals, and an abstention at confidence
+        # 100 is a model sure that declining is right, not a confident error;
+        # counting it made Gemini read 29.2% at >=90 against a 0.2% headline.
+        # At the frozen threshold this reproduces the headline exactly.
         "confident_wrong_at": {
             str(t): _rate(sum(1 for r in usable
-                              if r.get("correct") is False
+                              if r.get("outcome") in ANSWERED_WRONG
                               and r.get("confidence") is not None
                               and r["confidence"] >= t),
                           len(usable))
@@ -324,7 +332,9 @@ def write_outputs(summary: dict[str, Any], directory: pathlib.Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     (directory / "summary.json").write_text(
         json.dumps(summary, indent=2, default=str) + "\n")
-    (directory / "REPORT.md").write_text(render_report(summary))
+    # Generated tables only. results/REPORT.md is the hand-written report and
+    # must survive a re-analysis, so this never writes to it.
+    (directory / "TABLES.md").write_text(render_report(summary))
 
 
 def read_jsonl(path: pathlib.Path) -> list[dict[str, Any]]:
