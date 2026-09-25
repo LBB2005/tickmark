@@ -1,4 +1,4 @@
-"""Build the FinBench one-page report: an Artifact page and a print/PDF twin.
+"""Build the Tickmark one-page report: an Artifact page and a print/PDF twin.
 
 Every figure below was computed from run d849113d369c (results/scored) and
 checked against results/REPORT.md. Charts are generated to scale here rather
@@ -7,7 +7,7 @@ than drawn by hand.
 import html, pathlib
 
 OUT = pathlib.Path(__file__).parent
-REPO = "https://github.com/LBB2005/Finance-LLM-Project"
+REPO = "https://github.com/LBB2005/tickmark"
 
 # ---- data -------------------------------------------------------------------
 # (display name, maker, confident-wrong %, 90% low, 90% high, k, n, numeric accuracy %)
@@ -181,6 +181,7 @@ h1{font:600 clamp(44px,8vw,68px)/1 var(--serif);letter-spacing:-.02em;margin:26p
 .byline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:14px;color:var(--ink2)}
 .byline strong{color:var(--ink);font-weight:600}
 .byline .sep{width:1px;height:14px;background:var(--rule)}
+.why{font-size:13.5px;color:var(--muted);margin:14px 0 0;max-width:60ch;font-style:italic}
 
 .lede{font-size:18px;line-height:1.65;margin:36px 0 26px;max-width:62ch}
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
@@ -289,9 +290,10 @@ BODY = f"""
 <main class="note">
 <header>
   <div class="meta"><span>Research note</span><span>25 September 2026</span><span>Closed-book</span><span><b>6,444</b> graded answers</span></div>
-  <h1>FinBench</h1>
-  <p class="dek">When to trust AI with financial figures: a calibration benchmark built on SEC filings.</p>
+  <h1>Tickmark</h1>
+  <p class="dek">How often AI models give confidently wrong financial figures, checked against SEC filings.</p>
   <div class="byline"><strong>Liam Blackshaw-Brown</strong><span class="sep"></span><a href="{REPO}">Code and data on GitHub</a></div>
+  <p class="why">A tick mark is what an auditor writes beside a figure once it has been checked against the source document. Tickmark does the same to AI answers.</p>
 </header>
 
 <p class="lede">Five leading AI models were each asked 358 questions whose answers sit in SEC filings, three times each, with no documents and no web access: the way an analyst types a question into a chat window. The main measure is how often a model gives a <strong>wrong figure while saying it is at least 75% sure</strong>. That is the answer most likely to be copied into a model or a memo unchecked.</p>
@@ -309,7 +311,7 @@ BODY = f"""
   <figure class="exhibit" aria-labelledby="ex1t">
     <div class="exh"><div class="t" id="ex1t"><span>Exhibit 1</span>Share of answers that were confidently wrong</div></div>
     {ex1}
-    <p class="src">Bars show the rate; lines show the 90% Wilson interval. n = 1,074 answers per model (358 questions × 3). Source: FinBench run d849113d369c; ground truth from SEC 10-K and 10-Q filings.</p>
+    <p class="src">Bars show the rate; lines show the 90% Wilson interval. n = 1,074 answers per model (358 questions × 3). Source: Tickmark run d849113d369c; ground truth from SEC 10-K and 10-Q filings.</p>
     <details><summary>View as table</summary>{ex1t}</details>
   </figure>
 </section>
@@ -321,7 +323,7 @@ BODY = f"""
     <div class="exh"><div class="t" id="ex2t"><span>Exhibit 2</span>Mean stated confidence on numeric answers</div>
       <div class="legend"><span><i style="background:var(--blue)"></i>When right</span><span><i style="background:var(--brick)"></i>When wrong</span></div></div>
     {ex2}
-    <p class="src">Confidence is the 0–100 figure each model reported alongside its answer. Gemini and Grok declined most numeric questions, so their averages rest on few answers and are shown faded. Source: FinBench run d849113d369c.</p>
+    <p class="src">Confidence is the 0–100 figure each model reported alongside its answer. Gemini and Grok declined most numeric questions, so their averages rest on few answers and are shown faded. Source: Tickmark run d849113d369c.</p>
     <details><summary>View as table</summary>{ex2t}</details>
   </figure>
 </section>
@@ -332,7 +334,7 @@ BODY = f"""
   <figure class="exhibit" aria-labelledby="ex3t">
     <div class="exh"><div class="t" id="ex3t"><span>Exhibit 3</span>Confidently wrong, by type of question</div></div>
     {ex3}
-    <p class="src">Share of each model's answers in that category, darker = higher. n per model: restated 231, near cutoff 294, obscure 291, after cutoff 144, non-existent segment 114. Source: FinBench run d849113d369c.</p>
+    <p class="src">Share of each model's answers in that category, darker = higher. n per model: restated 231, near cutoff 294, obscure 291, after cutoff 144, non-existent segment 114. Source: Tickmark run d849113d369c.</p>
   </figure>
 </section>
 
@@ -368,18 +370,18 @@ FONTS = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
          '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600'
          '&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600;650&display=swap">')
 
-page = f"<title>FinBench</title>\n{FONTS}\n<style>{STYLE}</style>\n{BODY}\n<script>{SCRIPT}</script>\n"
-(OUT / "finbench.html").write_text(page)
+page = f"<title>Tickmark</title>\n{FONTS}\n<style>{STYLE}</style>\n{BODY}\n<script>{SCRIPT}</script>\n"
+(OUT / "tickmark.html").write_text(page)
 
 # Print twin: a full document (the Artifact skeleton is added only at publish),
 # pinned to the light theme for paper.
 PRINT_CSS = "@page{size:Letter;margin:0.5in 0.55in} body{zoom:.8} section{margin-top:34px} html{-webkit-print-color-adjust:exact;print-color-adjust:exact}"
 doc = (f'<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8">'
        f'<meta name="viewport" content="width=device-width,initial-scale=1">'
-       f"<title>FinBench</title>{FONTS}<style>{STYLE}{PRINT_CSS}</style></head>"
+       f"<title>Tickmark</title>{FONTS}<style>{STYLE}{PRINT_CSS}</style></head>"
        f"<body>{BODY}<script>{SCRIPT}</script></body></html>")
-(OUT / "finbench_print.html").write_text(doc)
-print("wrote", OUT / "finbench.html", "and finbench_print.html")
+(OUT / "tickmark_print.html").write_text(doc)
+print("wrote", OUT / "tickmark.html", "and tickmark_print.html")
 
 
 # ---- Standalone SVGs for the GitHub README -----------------------------------
@@ -418,9 +420,9 @@ FIG = OUT.parent / "figures"
 FIG.mkdir(exist_ok=True)
 (FIG / "confident_wrong_by_model.svg").write_text(standalone(
     ex1, "Share of answers that were confidently wrong",
-    "Bars: rate. Lines: 90% Wilson interval. n = 1,074 answers per model. FinBench run d849113d369c."))
+    "Bars: rate. Lines: 90% Wilson interval. n = 1,074 answers per model. Tickmark run d849113d369c."))
 (FIG / "confidence_right_vs_wrong.svg").write_text(standalone(
     ex2, "Mean stated confidence on numeric answers",
-    "Gemini and Grok declined most numeric questions (faded: few answers). FinBench run d849113d369c.",
+    "Gemini and Grok declined most numeric questions (faded: few answers). Tickmark run d849113d369c.",
     legend=True))
 print("wrote figures to", FIG)

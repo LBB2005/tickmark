@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 import httpx
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
-PROJECT_NAME = "FinBench Calibration (research benchmark)"
+PROJECT_NAME = "Tickmark Calibration (research benchmark)"
 MIN_INTERVAL_SECONDS = 0.15  # SEC permits ~10 req/s; this is ~6.7 req/s
 TIMEOUT_SECONDS = 60.0
 DEFAULT_CACHE = pathlib.Path(__file__).resolve().parents[2] / "data" / "cache" / "edgar"

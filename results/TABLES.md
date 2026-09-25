@@ -1,4 +1,4 @@
-# FinBench closed-book results
+# Tickmark closed-book results
 
 Intervals are Wilson 90%. Confident-wrong is the headline; numeric accuracy is the control.
 

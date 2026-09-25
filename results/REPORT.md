@@ -1,4 +1,4 @@
-# FinBench closed-book results
+# Tickmark closed-book results
 
 Run `d849113d369c`: 358 questions × 6 models × 3 samples = 6,444 cells, all
 answered. Gold carries a human verification pass (the 78-record seeded sample,

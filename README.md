@@ -1,15 +1,17 @@
-# FinBench
+# Tickmark
 
-**How often do AI models give a wrong financial figure while claiming to be sure of it?**
+**How often AI models give confidently wrong financial figures, checked against SEC filings.**
 
-FinBench is a closed-book benchmark that asks leading large language models
+*A tick mark is what an auditor writes beside a figure once it has been checked against the source document. Tickmark does the same to AI answers.*
+
+Tickmark is a closed-book benchmark that asks leading large language models
 questions whose answers sit in SEC filings (10-Ks and 10-Qs), then grades each
 answer against the filing itself. Accuracy is the control variable. The headline
 is **calibration**: how often a model gives a figure the filing contradicts while
 stating 75% or higher confidence. That is the answer an analyst is most likely
 to copy into a model or memo unchecked.
 
-**[Read the report (PDF, 4 pages)](results/FinBench.pdf)** · [Full technical report](results/REPORT.md) · [Methodology](METHODOLOGY.md)
+**[Read the report (PDF, 4 pages)](results/Tickmark.pdf)** · [Full technical report](results/REPORT.md) · [Methodology](METHODOLOGY.md)
 
 ---
 
@@ -210,7 +212,7 @@ config/          models.yaml (roster, cutoffs), grading.yaml (frozen rules), com
 data/            gold.jsonl, questions.jsonl (+ SHA-256 hashes), verification sheet and audit reports
 src/finbench/    the library: SEC ingestion, question rendering, harness, scoring, analysis
 scripts/         build_gold, build_questions, run_eval, analyze, apply_verification, preflight_models
-results/         REPORT.md, FinBench.pdf, TABLES.md, summary.json, figures/, report/ (page source)
+results/         REPORT.md, Tickmark.pdf, TABLES.md, summary.json, figures/, report/ (page source)
 tests/           224 tests
 METHODOLOGY.md   every design decision, with the reasoning and what went wrong along the way
 ```
@@ -220,8 +222,8 @@ METHODOLOGY.md   every design decision, with the reasoning and what went wrong a
 ## Reproduce it
 
 ```bash
-git clone https://github.com/LBB2005/Finance-LLM-Project.git
-cd Finance-LLM-Project
+git clone https://github.com/LBB2005/tickmark.git
+cd tickmark
 uv sync --extra dev
 cp .env.example .env    # set OPENROUTER_API_KEY and SEC_CONTACT_EMAIL
 .venv/bin/python -m pytest
