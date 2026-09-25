@@ -1,0 +1,207 @@
+<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinBench</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Public+Sans:wght@400;500;600;650&display=swap"><style>
+:root{
+  --paper:#F6F7F8; --card:#FFFFFF; --ink:#141A23; --ink2:#46505F; --muted:#737D8C;
+  --rule:#DCE0E6; --grid:#E6E9EE; --blue:#2F6DB5; --brick:#C2412D; --brick-rgb:194,65,45;
+  --bar:#B7C0CC; --tipbg:#141A23; --tipfg:#FFFFFF; --focus:#2F6DB5;
+  --serif:"Newsreader","Iowan Old Style","Georgia",serif;
+  --sans:"Public Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme:dark; --paper:#12161C; --card:#1A1F27; --ink:#E9EDF2; --ink2:#B6BFCB;
+  --muted:#8C96A4; --rule:#2C333D; --grid:#262C35; --blue:#5C93DB; --brick:#E0654F;
+  --brick-rgb:224,101,79; --bar:#566172; --tipbg:#E9EDF2; --tipfg:#12161C; --focus:#5C93DB;}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --paper:#12161C; --card:#1A1F27; --ink:#E9EDF2; --ink2:#B6BFCB;
+  --muted:#8C96A4; --rule:#2C333D; --grid:#262C35; --blue:#5C93DB; --brick:#E0654F;
+  --brick-rgb:224,101,79; --bar:#566172; --tipbg:#E9EDF2; --tipfg:#12161C; --focus:#5C93DB;}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+.note{max-width:760px;margin:0 auto;padding-inline:20px;padding-block:40px 64px}
+a{color:var(--blue);text-underline-offset:3px}
+a:focus-visible,.mark:focus-visible,summary:focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:3px}
+
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;font:500 12px/1.4 var(--mono);letter-spacing:.04em;
+  text-transform:uppercase;color:var(--muted);padding-bottom:14px;border-bottom:1px solid var(--rule)}
+.meta b{color:var(--brick);font-weight:600}
+h1{font:600 clamp(44px,8vw,68px)/1 var(--serif);letter-spacing:-.02em;margin:26px 0 10px;text-wrap:balance}
+.dek{font:400 clamp(20px,3.2vw,24px)/1.35 var(--serif);color:var(--ink2);margin:0 0 20px;max-width:34ch;text-wrap:balance}
+.byline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:14px;color:var(--ink2)}
+.byline strong{color:var(--ink);font-weight:600}
+.byline .sep{width:1px;height:14px;background:var(--rule)}
+
+.lede{font-size:18px;line-height:1.65;margin:36px 0 26px;max-width:62ch}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.tile{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:6px}
+.tile .v{font:650 40px/1 var(--sans);letter-spacing:-.02em}
+.tile.hot .v{color:var(--brick)}
+.tile .l{font-size:14px;line-height:1.45;color:var(--ink2)}
+.def{font-size:13px;color:var(--muted);margin:0 0 8px}
+
+section{margin-top:52px}
+h2{font:600 clamp(24px,4vw,30px)/1.2 var(--serif);letter-spacing:-.01em;margin:0 0 12px;text-wrap:balance}
+p{margin:0 0 14px;max-width:64ch}
+.exhibit{margin:22px 0 16px;background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 12px}
+.exh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;align-items:baseline;margin-bottom:6px}
+.exh .t{font:600 14px/1.4 var(--sans)}
+.exh .t span{font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:8px}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.src{font:400 12px/1.5 var(--sans);color:var(--muted);margin:10px 0 0;padding-top:8px;border-top:1px solid var(--grid)}
+details{margin-top:8px;font-size:13px}
+summary{cursor:pointer;color:var(--ink2);width:max-content}
+
+.chart{width:100%;height:auto;display:block;font-family:var(--sans);overflow:visible}
+.grid{stroke:var(--grid);stroke-width:1}
+.axis{stroke:var(--muted);stroke-width:1}
+.thresh{stroke:var(--muted);stroke-width:1}
+.tick{fill:var(--muted);font:500 11px var(--mono)}
+.lab{fill:var(--ink);font:600 13.5px var(--sans)}
+.fewt{fill:var(--ink2)}
+.sub{fill:var(--muted);font:400 11.5px var(--sans)}
+.val{fill:var(--ink);font:600 12.5px var(--mono)}
+.valhot{fill:var(--ink)}
+.bar{fill:var(--bar)}
+.bar.hot{fill:var(--brick)}
+.ci{stroke:var(--ink2);stroke-width:1.25}
+.hit{fill:transparent}
+.stem{stroke:var(--bar);stroke-width:2}
+.dot{stroke:var(--card);stroke-width:2}
+.dot.right{fill:var(--blue)} .dot.wrong{fill:var(--brick)}
+.mark.few{opacity:.55}
+.mark{cursor:default;outline:none}
+.mark:hover .hit,.mark:focus .hit{fill:var(--grid);opacity:.6}
+
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+thead th{font:600 12px/1.3 var(--sans);color:var(--ink2)}
+td{font-variant-numeric:tabular-nums}
+.n{color:var(--muted)}
+.heat{min-width:560px}
+.heat thead th{text-align:center;font-size:12px;padding-bottom:10px}
+.heat th[scope=row]{padding-right:14px;min-width:170px}
+.cl{display:block;font-weight:600;font-size:13.5px}
+.cs{display:block;font-weight:400;font-size:12px;color:var(--muted);line-height:1.35}
+.hc{text-align:center;vertical-align:middle;font:600 13px var(--mono);font-variant-numeric:tabular-nums;
+  background:rgba(var(--brick-rgb),var(--a));border:2px solid var(--card);border-radius:4px}
+.hc.z{color:var(--muted);font-weight:400;background:transparent}
+.hc.ink{color:#FFFFFF}
+
+.rules{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:14px}
+.rules li{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;max-width:66ch}
+.rules li::before{content:"";width:8px;height:8px;margin-top:9px;background:var(--brick);border-radius:2px}
+.rules b{font-weight:600}
+
+.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;margin-top:18px}
+.checks div{border-top:1px solid var(--rule);padding-top:12px}
+.checks h3{font:600 15px/1.35 var(--sans);margin:0 0 4px}
+.checks p{font-size:14px;color:var(--ink2);margin:0;line-height:1.55}
+
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted);line-height:1.6}
+footer p{max-width:none;margin:0 0 8px}
+footer .links{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:14px}
+
+#tip{position:fixed;z-index:10;max-width:280px;padding:8px 10px;border-radius:6px;background:var(--tipbg);color:var(--tipfg);
+  font:400 12.5px/1.45 var(--sans);pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+@media (max-width:640px){
+  .tiles{grid-template-columns:1fr} .checks{grid-template-columns:1fr}
+  .tile .v{font-size:34px} .exhibit{padding:14px 12px 10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{
+  body{background:#fff} .note{padding-block:0}
+  .exhibit,.tile,.checks div,.rules li{break-inside:avoid}
+  section{break-inside:auto} h2{break-after:avoid}
+  details,#tip{display:none!important}
+  a{color:var(--ink);text-decoration:none}
+}
+@page{size:Letter;margin:0.5in 0.55in} body{zoom:.8} section{margin-top:34px} html{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>
+<main class="note">
+<header>
+  <div class="meta"><span>Research note</span><span>25 September 2026</span><span>Closed-book</span><span><b>6,444</b> graded answers</span></div>
+  <h1>FinBench</h1>
+  <p class="dek">When to trust AI with financial figures: a calibration benchmark built on SEC filings.</p>
+  <div class="byline"><strong>Liam Blackshaw-Brown</strong><span class="sep"></span><a href="https://github.com/LBB2005/Finance-LLM-Project">Code and data on GitHub</a></div>
+</header>
+
+<p class="lede">Five leading AI models were each asked 358 questions whose answers sit in SEC filings, three times each, with no documents and no web access: the way an analyst types a question into a chat window. The main measure is how often a model gives a <strong>wrong figure while saying it is at least 75% sure</strong>. That is the answer most likely to be copied into a model or a memo unchecked.</p>
+
+<div class="tiles">
+  <div class="tile hot"><div class="v">20.8%</div><div class="l">of the budget model's answers were wrong and stated with high confidence</div></div>
+  <div class="tile"><div class="v">0.1–5.5%</div><div class="l">for the four flagship models on the same questions</div></div>
+  <div class="tile"><div class="v">0</div><div class="l">figures invented across 570 answers about business segments that don't exist</div></div>
+</div>
+<p class="def">Confident-wrong: a figure the filing contradicts, given with stated confidence of 75 or more. Accuracy is graded at the precision the model stated.</p>
+
+<section>
+  <h2>The budget model is confidently wrong about one time in five</h2>
+  <p>GPT-5.6 Luna, OpenAI's low-cost model, gave a confident wrong figure on 223 of its 1,074 answers. The flagship from the same generation, GPT-5.6 Sol, did so on 59. The other three flagships each did so fewer than four times.</p>
+  <figure class="exhibit" aria-labelledby="ex1t">
+    <div class="exh"><div class="t" id="ex1t"><span>Exhibit 1</span>Share of answers that were confidently wrong</div></div>
+    <svg viewBox="0 0 640 294" role="img" aria-labelledby="ex1t" class="chart"><line x1="168.0" y1="22" x2="168.0" y2="260" class="grid"/><text x="168.0" y="280" class="tick" text-anchor="middle">0%</text><line x1="252.4" y1="22" x2="252.4" y2="260" class="grid"/><text x="252.4" y="280" class="tick" text-anchor="middle">5%</text><line x1="336.8" y1="22" x2="336.8" y2="260" class="grid"/><text x="336.8" y="280" class="tick" text-anchor="middle">10%</text><line x1="421.2" y1="22" x2="421.2" y2="260" class="grid"/><text x="421.2" y="280" class="tick" text-anchor="middle">15%</text><line x1="505.6" y1="22" x2="505.6" y2="260" class="grid"/><text x="505.6" y="280" class="tick" text-anchor="middle">20%</text><line x1="590.0" y1="22" x2="590.0" y2="260" class="grid"/><text x="590.0" y="280" class="tick" text-anchor="middle">25%</text><g class="mark" tabindex="0" data-tip="GPT-5.6 Luna: 20.8% confidently wrong (223 of 1,074 answers). 90% interval 18.8–22.9%. Numeric accuracy 2.5%."><rect x="164" y="32.0" width="430" height="42" class="hit"/><path d="M168.0,44.0 H515.1 Q519.1,44.0 519.1,48.0 V58.0 Q519.1,62.0 515.1,62.0 H168.0 Z" class="bar hot"/><line x1="485.3" y1="53.0" x2="554.6" y2="53.0" class="ci"/><line x1="485.3" y1="48.0" x2="485.3" y2="58.0" class="ci"/><line x1="554.6" y1="48.0" x2="554.6" y2="58.0" class="ci"/></g><text x="154" y="51.0" class="lab" text-anchor="end">GPT-5.6 Luna</text><text x="154" y="66.0" class="sub" text-anchor="end">OpenAI · budget tier</text><text x="563.6" y="57.5" class="val valhot">20.8%</text><g class="mark" tabindex="0" data-tip="GPT-5.6 Sol: 5.5% confidently wrong (59 of 1,074 answers). 90% interval 4.5–6.8%. Numeric accuracy 11.5%."><rect x="164" y="78.0" width="430" height="42" class="hit"/><path d="M168.0,90.0 H256.8 Q260.8,90.0 260.8,94.0 V104.0 Q260.8,108.0 256.8,108.0 H168.0 Z" class="bar"/><line x1="244.0" y1="99.0" x2="282.8" y2="99.0" class="ci"/><line x1="244.0" y1="94.0" x2="244.0" y2="104.0" class="ci"/><line x1="282.8" y1="94.0" x2="282.8" y2="104.0" class="ci"/></g><text x="154" y="97.0" class="lab" text-anchor="end">GPT-5.6 Sol</text><text x="154" y="112.0" class="sub" text-anchor="end">OpenAI · flagship</text><text x="291.8" y="103.5" class="val">5.5%</text><g class="mark" tabindex="0" data-tip="Claude Opus 5: 0.3% confidently wrong (3 of 1,074 answers). 90% interval 0.1–0.7%. Numeric accuracy 9.2%."><rect x="164" y="124.0" width="430" height="42" class="hit"/><path d="M168.0,136.0 H170.5 Q173.1,136.0 173.1,138.5 V151.5 Q173.1,154.0 170.5,154.0 H168.0 Z" class="bar"/><line x1="169.7" y1="145.0" x2="179.8" y2="145.0" class="ci"/><line x1="169.7" y1="140.0" x2="169.7" y2="150.0" class="ci"/><line x1="179.8" y1="140.0" x2="179.8" y2="150.0" class="ci"/></g><text x="154" y="143.0" class="lab" text-anchor="end">Claude Opus 5</text><text x="154" y="158.0" class="sub" text-anchor="end">Anthropic · flagship</text><text x="188.8" y="149.5" class="val">0.3%</text><g class="mark" tabindex="0" data-tip="Gemini 3.1 Pro: 0.2% confidently wrong (2 of 1,074 answers). 90% interval 0.1–0.6%. Numeric accuracy 2.5%."><rect x="164" y="170.0" width="430" height="42" class="hit"/><path d="M168.0,182.0 H169.7 Q171.4,182.0 171.4,183.7 V198.3 Q171.4,200.0 169.7,200.0 H168.0 Z" class="bar"/><line x1="169.7" y1="191.0" x2="178.1" y2="191.0" class="ci"/><line x1="169.7" y1="186.0" x2="169.7" y2="196.0" class="ci"/><line x1="178.1" y1="186.0" x2="178.1" y2="196.0" class="ci"/></g><text x="154" y="189.0" class="lab" text-anchor="end">Gemini 3.1 Pro</text><text x="154" y="204.0" class="sub" text-anchor="end">Google · flagship</text><text x="187.1" y="195.5" class="val">0.2%</text><g class="mark" tabindex="0" data-tip="Grok 4.6: 0.1% confidently wrong (1 of 1,074 answers). 90% interval 0.0–0.4%. Numeric accuracy 4.4%."><rect x="164" y="216.0" width="430" height="42" class="hit"/><path d="M168.0,228.0 H169.5 Q171.0,228.0 171.0,229.5 V244.5 Q171.0,246.0 169.5,246.0 H168.0 Z" class="bar"/><line x1="168.0" y1="237.0" x2="174.8" y2="237.0" class="ci"/><line x1="168.0" y1="232.0" x2="168.0" y2="242.0" class="ci"/><line x1="174.8" y1="232.0" x2="174.8" y2="242.0" class="ci"/></g><text x="154" y="235.0" class="lab" text-anchor="end">Grok 4.6</text><text x="154" y="250.0" class="sub" text-anchor="end">xAI · flagship</text><text x="183.8" y="241.5" class="val">0.1%</text><line x1="168.0" y1="22" x2="168.0" y2="260" class="axis"/></svg>
+    <p class="src">Bars show the rate; lines show the 90% Wilson interval. n = 1,074 answers per model (358 questions × 3). Source: FinBench run d849113d369c; ground truth from SEC 10-K and 10-Q filings.</p>
+    <details><summary>View as table</summary><table><thead><tr><th>Model</th><th>Confident-wrong</th><th>90% interval</th><th>Answers</th><th>Numeric accuracy</th></tr></thead><tbody><tr><td>GPT-5.6 Luna</td><td>20.8%</td><td>18.8–22.9%</td><td>223 / 1,074</td><td>2.5%</td></tr><tr><td>GPT-5.6 Sol</td><td>5.5%</td><td>4.5–6.8%</td><td>59 / 1,074</td><td>11.5%</td></tr><tr><td>Claude Opus 5</td><td>0.3%</td><td>0.1–0.7%</td><td>3 / 1,074</td><td>9.2%</td></tr><tr><td>Gemini 3.1 Pro</td><td>0.2%</td><td>0.1–0.6%</td><td>2 / 1,074</td><td>2.5%</td></tr><tr><td>Grok 4.6</td><td>0.1%</td><td>0.0–0.4%</td><td>1 / 1,074</td><td>4.4%</td></tr></tbody></table></details>
+  </figure>
+</section>
+
+<section>
+  <h2>The gap is in the confidence, not the knowledge</h2>
+  <p>None of these models reliably recalls exact figures from filings. What separates them is what they say when they don't know. When Luna gave a wrong number it still reported a mean confidence of 87, barely below the 98 it reported when right. Sol drops to 50 when wrong, and Claude Opus 5 to 44. Their stated confidence carries a warning; Luna's does not.</p>
+  <figure class="exhibit" aria-labelledby="ex2t">
+    <div class="exh"><div class="t" id="ex2t"><span>Exhibit 2</span>Mean stated confidence on numeric answers</div>
+      <div class="legend"><span><i style="background:var(--blue)"></i>When right</span><span><i style="background:var(--brick)"></i>When wrong</span></div></div>
+    <svg viewBox="0 0 640 288" role="img" aria-labelledby="ex2t" class="chart"><line x1="168.0" y1="26" x2="168.0" y2="254" class="grid"/><text x="168.0" y="274" class="tick" text-anchor="middle">0</text><line x1="278.5" y1="26" x2="278.5" y2="254" class="grid"/><text x="278.5" y="274" class="tick" text-anchor="middle">25</text><line x1="389.0" y1="26" x2="389.0" y2="254" class="grid"/><text x="389.0" y="274" class="tick" text-anchor="middle">50</text><line x1="499.5" y1="26" x2="499.5" y2="254" class="grid"/><text x="499.5" y="274" class="tick" text-anchor="middle">75</text><line x1="610.0" y1="26" x2="610.0" y2="254" class="grid"/><text x="610.0" y="274" class="tick" text-anchor="middle">100</text><line x1="499.5" y1="26" x2="499.5" y2="254" class="thresh"/><text x="504.5" y="22" class="sub">75 = "confident"</text><g class="mark" tabindex="0" data-tip="GPT-5.6 Luna: mean stated confidence 98 when right (n=17), 87 when wrong (n=199); 216 numeric answers given."><rect x="164" y="36.0" width="450" height="40" class="hit"/><line x1="552.1" y1="56.0" x2="600.3" y2="56.0" class="stem"/><circle cx="552.1" cy="56.0" r="6" class="dot wrong"/><circle cx="600.3" cy="56.0" r="6" class="dot right"/></g><text x="154" y="54.0" class="lab" text-anchor="end">GPT-5.6 Luna</text><text x="154" y="69.0" class="sub" text-anchor="end">216 answers</text><text x="541.1" y="60.5" class="val" text-anchor="end">87</text><text x="611.3" y="60.5" class="val">98</text><g class="mark" tabindex="0" data-tip="GPT-5.6 Sol: mean stated confidence 76 when right (n=77), 50 when wrong (n=285); 362 numeric answers given."><rect x="164" y="80.0" width="450" height="40" class="hit"/><line x1="391.2" y1="100.0" x2="502.2" y2="100.0" class="stem"/><circle cx="391.2" cy="100.0" r="6" class="dot wrong"/><circle cx="502.2" cy="100.0" r="6" class="dot right"/></g><text x="154" y="98.0" class="lab" text-anchor="end">GPT-5.6 Sol</text><text x="154" y="113.0" class="sub" text-anchor="end">362 answers</text><text x="380.2" y="104.5" class="val" text-anchor="end">50</text><text x="513.2" y="104.5" class="val">76</text><g class="mark" tabindex="0" data-tip="Claude Opus 5: mean stated confidence 63 when right (n=63), 44 when wrong (n=294); 357 numeric answers given."><rect x="164" y="124.0" width="450" height="40" class="hit"/><line x1="363.8" y1="144.0" x2="445.1" y2="144.0" class="stem"/><circle cx="363.8" cy="144.0" r="6" class="dot wrong"/><circle cx="445.1" cy="144.0" r="6" class="dot right"/></g><text x="154" y="142.0" class="lab" text-anchor="end">Claude Opus 5</text><text x="154" y="157.0" class="sub" text-anchor="end">357 answers</text><text x="352.8" y="148.5" class="val" text-anchor="end">44</text><text x="456.1" y="148.5" class="val">63</text><g class="mark few" tabindex="0" data-tip="Gemini 3.1 Pro: mean stated confidence 72 when right (n=17), 64 when wrong (n=7); 24 numeric answers given."><rect x="164" y="168.0" width="450" height="40" class="hit"/><line x1="452.2" y1="188.0" x2="485.4" y2="188.0" class="stem"/><circle cx="452.2" cy="188.0" r="6" class="dot wrong"/><circle cx="485.4" cy="188.0" r="6" class="dot right"/></g><text x="154" y="186.0" class="lab fewt" text-anchor="end">Gemini 3.1 Pro</text><text x="154" y="201.0" class="sub" text-anchor="end">only 24 answers</text><g class="mark few" tabindex="0" data-tip="Grok 4.6: mean stated confidence 60 when right (n=30), 53 when wrong (n=38); 68 numeric answers given."><rect x="164" y="212.0" width="450" height="40" class="hit"/><line x1="403.1" y1="232.0" x2="435.4" y2="232.0" class="stem"/><circle cx="403.1" cy="232.0" r="6" class="dot wrong"/><circle cx="435.4" cy="232.0" r="6" class="dot right"/></g><text x="154" y="230.0" class="lab fewt" text-anchor="end">Grok 4.6</text><text x="154" y="245.0" class="sub" text-anchor="end">only 68 answers</text></svg>
+    <p class="src">Confidence is the 0–100 figure each model reported alongside its answer. Gemini and Grok declined most numeric questions, so their averages rest on few answers and are shown faded. Source: FinBench run d849113d369c.</p>
+    <details><summary>View as table</summary><table><thead><tr><th>Model</th><th>When right</th><th>When wrong</th><th>Numeric answers</th></tr></thead><tbody><tr><td>GPT-5.6 Luna</td><td>98 <span class=n>(n=17)</span></td><td>87 <span class=n>(n=199)</span></td><td>216</td></tr><tr><td>GPT-5.6 Sol</td><td>76 <span class=n>(n=77)</span></td><td>50 <span class=n>(n=285)</span></td><td>362</td></tr><tr><td>Claude Opus 5</td><td>63 <span class=n>(n=63)</span></td><td>44 <span class=n>(n=294)</span></td><td>357</td></tr><tr><td>Gemini 3.1 Pro</td><td>72 <span class=n>(n=17)</span></td><td>64 <span class=n>(n=7)</span></td><td>24</td></tr><tr><td>Grok 4.6</td><td>60 <span class=n>(n=30)</span></td><td>53 <span class=n>(n=38)</span></td><td>68</td></tr></tbody></table></details>
+  </figure>
+</section>
+
+<section>
+  <h2>Mistakes cluster where a plausible old number exists</h2>
+  <p>Every closed-book model handled the traps: made-up segments, obscure figures and periods after its training data all drew zero confident errors. The errors come from two kinds of question. One is a <strong>restated figure</strong>, where the model remembers the number as originally reported. The other is a period <strong>just before its training cutoff</strong>, where it fills the gap with a guess.</p>
+  <figure class="exhibit" aria-labelledby="ex3t">
+    <div class="exh"><div class="t" id="ex3t"><span>Exhibit 3</span>Confidently wrong, by type of question</div></div>
+    <div class="scroll"><table class="heat"><thead><tr><th></th><th scope="col">GPT-5.6 Luna</th><th scope="col">GPT-5.6 Sol</th><th scope="col">Claude Opus 5</th><th scope="col">Gemini 3.1 Pro</th><th scope="col">Grok 4.6</th></tr></thead><tbody><tr><th scope="row"><span class="cl">Restated figures</span><span class="cs">a number the company later revised</span></th><td class="hc ink" style="--a:0.81" title="GPT-5.6 Luna: 94 of 231 answers">41%</td><td class="hc" style="--a:0.17" title="GPT-5.6 Sol: 9 of 231 answers">4%</td><td class="hc z" style="--a:0.00" title="Claude Opus 5: 0 of 231 answers">0</td><td class="hc" style="--a:0.12" title="Gemini 3.1 Pro: 2 of 231 answers">0.9%</td><td class="hc" style="--a:0.11" title="Grok 4.6: 1 of 231 answers">0.4%</td></tr><tr><th scope="row"><span class="cl">Just before the cutoff</span><span class="cs">a period near the model&#x27;s training cutoff</span></th><td class="hc ink" style="--a:0.86" title="GPT-5.6 Luna: 129 of 294 answers">44%</td><td class="hc" style="--a:0.39" title="GPT-5.6 Sol: 50 of 294 answers">17%</td><td class="hc" style="--a:0.12" title="Claude Opus 5: 3 of 294 answers">1%</td><td class="hc z" style="--a:0.00" title="Gemini 3.1 Pro: 0 of 294 answers">0</td><td class="hc z" style="--a:0.00" title="Grok 4.6: 0 of 294 answers">0</td></tr><tr><th scope="row"><span class="cl">Obscure segment figures</span><span class="cs">real but rarely quoted numbers</span></th><td class="hc z" style="--a:0.00" title="GPT-5.6 Luna: 0 of 291 answers">0</td><td class="hc z" style="--a:0.00" title="GPT-5.6 Sol: 0 of 291 answers">0</td><td class="hc z" style="--a:0.00" title="Claude Opus 5: 0 of 291 answers">0</td><td class="hc z" style="--a:0.00" title="Gemini 3.1 Pro: 0 of 291 answers">0</td><td class="hc z" style="--a:0.00" title="Grok 4.6: 0 of 291 answers">0</td></tr><tr><th scope="row"><span class="cl">After the cutoff</span><span class="cs">periods the model cannot have seen</span></th><td class="hc z" style="--a:0.00" title="GPT-5.6 Luna: 0 of 144 answers">0</td><td class="hc z" style="--a:0.00" title="GPT-5.6 Sol: 0 of 144 answers">0</td><td class="hc z" style="--a:0.00" title="Claude Opus 5: 0 of 144 answers">0</td><td class="hc z" style="--a:0.00" title="Gemini 3.1 Pro: 0 of 144 answers">0</td><td class="hc z" style="--a:0.00" title="Grok 4.6: 0 of 144 answers">0</td></tr><tr><th scope="row"><span class="cl">Segments that don&#x27;t exist</span><span class="cs">a false premise the model must reject</span></th><td class="hc z" style="--a:0.00" title="GPT-5.6 Luna: 0 of 114 answers">0</td><td class="hc z" style="--a:0.00" title="GPT-5.6 Sol: 0 of 114 answers">0</td><td class="hc z" style="--a:0.00" title="Claude Opus 5: 0 of 114 answers">0</td><td class="hc z" style="--a:0.00" title="Gemini 3.1 Pro: 0 of 114 answers">0</td><td class="hc z" style="--a:0.00" title="Grok 4.6: 0 of 114 answers">0</td></tr></tbody></table></div>
+    <p class="src">Share of each model's answers in that category, darker = higher. n per model: restated 231, near cutoff 294, obscure 291, after cutoff 144, non-existent segment 114. Source: FinBench run d849113d369c.</p>
+  </figure>
+</section>
+
+<section>
+  <h2>What this means for an analyst</h2>
+  <ul class="rules">
+    <li><span><b>Check any figure for a period near the model's training cutoff</b>, whatever confidence it states. That is where confident errors peak, reaching 44% of answers for the budget model.</span></li>
+    <li><span><b>Expect restated numbers to come back as originally reported.</b> After a spin-off or an accounting change, a model will often give the old figure and be sure of it.</span></li>
+    <li><span><b>Read the confidence field only on models that use it.</b> A flagship's stated confidence falls sharply when it is wrong. The budget model's barely moves, so a cheaper model saves money at the cost of that warning.</span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>How the results were checked</h2>
+  <div class="checks">
+    <div><h3>Answers come from the filings</h3><p>358 questions built from XBRL data in 10-K and 10-Q filings across 50 companies, chosen for messy structures (spin-offs, 52-week fiscal years, share classes) rather than size.</p></div>
+    <div><h3>Rules fixed before any model ran</h3><p>Grading rules were committed before the first model call, and the git history shows the order. The rules were never changed after results came in.</p></div>
+    <div><h3>Answer key verified by hand</h3><p>A seeded sample of 78 answer-key records was checked against the primary filings: 78 of 78 confirmed. An automated review beforehand found 13 questions asking for figures that companies later revised; that question type was reworded before the final run.</p></div>
+    <div><h3>Results reproduce</h3><p>260 unchanged questions were run a week apart, and no model's results moved beyond noise (|z| ≤ 1.4). The same check flagged a web-search reference model whose provider changed its behaviour under an unchanged name, so it is reported separately and not compared here.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p>Models were called through OpenRouter with provider fallbacks disabled and any substituted model quarantined; 3 samples per question; all 6,444 answers graded. Rates carry 90% Wilson intervals. Limitations: 280 of the 358 answer-key records are verified by the automated pipeline only, per-category samples are 114–294 answers per model, and this is the closed-book track only, with no documents provided.</p>
+  <div class="links"><a href="https://github.com/LBB2005/Finance-LLM-Project/blob/main/results/REPORT.md">Full technical report</a><a href="https://github.com/LBB2005/Finance-LLM-Project/blob/main/METHODOLOGY.md">Methodology</a><a href="https://github.com/LBB2005/Finance-LLM-Project">Code and data</a></div>
+</footer>
+</main>
+<div id="tip" role="tooltip" hidden></div>
+<script>
+(function(){
+  var tip=document.getElementById('tip');
+  function show(el,x,y){tip.textContent=el.getAttribute('data-tip');tip.hidden=false;
+    var r=tip.getBoundingClientRect(),px=Math.min(x+14,innerWidth-r.width-8),py=y+14;
+    if(py+r.height>innerHeight-8)py=y-r.height-12;tip.style.left=px+'px';tip.style.top=py+'px';}
+  document.querySelectorAll('.mark').forEach(function(el){
+    el.addEventListener('mousemove',function(ev){show(el,ev.clientX,ev.clientY)});
+    el.addEventListener('mouseleave',function(){tip.hidden=true});
+    el.addEventListener('focus',function(){var b=el.getBoundingClientRect();show(el,b.left+b.width/2,b.top+b.height/2)});
+    el.addEventListener('blur',function(){tip.hidden=true});
+  });
+})();
+</script></body></html>
