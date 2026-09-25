@@ -9,20 +9,23 @@ Canary (exclude from training crawls): `finbench-canary-482a587e-99f4-42cf-8422-
 
 ## Status
 
-Closed-book working run is in `results/REPORT.md` (run `dfba4ccd2d88`,
-$20.25, 6,436/6,444 scored). Gold is hashed; the human verification sheet
-still needs a sign-off before these numbers are published.
+Closed-book results are in [`results/REPORT.md`](results/REPORT.md) (run
+`d849113d369c`: 6,444/6,444 cells, $19.91). Headline: the cheap tier
+(gpt-5.6-luna) is confidently wrong on 20.8% of questions against 0.1–5.5% for
+the flagships, and every closed-book error falls on restatement and
+near-cutoff questions. Gold carries a human verification pass on the seeded
+sample.
 
 | Milestone | State |
 |---|---|
 | 0 Scaffold, frozen grading rules | done |
-| 1 Gold assembly, density screen, cutoff probe | done, human verification pending |
-| 1.8 Covenant questions (manual, 15–20) | deferred — ship closed-book without them |
-| 2 Question freeze (`data/questions.jsonl`) | done |
-| 3 Closed-book harness + full run | done (8 timeouts unscored) |
-| 4 Analysis | working report written; writeup and abstention hand-check remain |
+| 1 Gold assembly, density screen, cutoff probe | done; human verification done (78/78 on the seeded sample) |
+| 1.8 Covenant questions (manual, 15–20) | deferred: shipped closed-book without them |
+| 2 Question freeze (`data/questions.jsonl`) | done; boundary questions reworded after round-2 verification |
+| 3 Closed-book harness + full run | done: full coverage, retry pass, resumable |
+| 4 Analysis | report written; abstention hand-check (random 100) remains |
 | Open-book excerpt track | not started (spec: drop this first if behind) |
-| Reasoning-toggle subset | not started |
+| Reasoning-toggle subset | built and tested, not run (cost) |
 
 ## Setup
 
@@ -48,7 +51,13 @@ SEC requests need `SEC_CONTACT_EMAIL`.
 # Full closed-book run (~$20; 358 questions × 6 models × 3 samples)
 .venv/bin/python -m finbench.run --spend-cap 40 --concurrency 4
 
-# Summarise a scored jsonl
+# Continue a run that stopped (spend cap, out of credits): same args plus
+.venv/bin/python -m finbench.run --resume <run_id> --spend-cap 15
+
+# Reasoning-toggle subset (claude-opus-5, 60 q, reasoning on; ~$1-6)
+.venv/bin/python -m finbench.run --track reasoning_toggle --spend-cap 9
+
+# Summarise -> results/summary.json + results/TABLES.md (REPORT.md is hand-written)
 .venv/bin/python scripts/analyze.py results/scored/<run_id>.jsonl
 ```
 
@@ -59,16 +68,25 @@ Rebuild questions only if gold changed, then re-hash:
 shasum -a 256 data/gold.jsonl | tee data/GOLD.sha256
 ```
 
-## Human verification (the remaining gate)
+## Human verification
 
-`data/verification_sheet.csv` is the 78-row sample. Round-1 evidence is in
-`data/verification_round1_report.md`. Fill `verified_ok`, then:
+Done: the 78-row seeded sample (`data/verification_sheet.csv`) was checked
+against the primary filings by a human, and all 78 records were confirmed and
+marked `verification: human`. The other 280 are `auto` by design.
+
+Two AI evidence passes came first: `data/verification_round1_report.md` and
+`data/verification_round2_report.md`. Round 2 found 13 boundary records
+carrying figures the company later recast, which led to the "As most recently
+reported by" wording fix. Neither AI pass marked anything `human`.
+
+To re-apply after editing the sheet:
 
 ```bash
-.venv/bin/python scripts/apply_verification.py
+.venv/bin/python scripts/apply_verification.py "Your Name"
 ```
 
-Do not treat the round-1 AI pass as the human pass. After the sheet is
-applied, rebuild questions and re-hash before a published model run.
+Pass your name explicitly. The script marks every `y` row `human` and
+otherwise records `$USER`, so it cannot tell who actually filled in the sheet.
+Rebuild questions and re-hash afterwards.
 
 See `METHODOLOGY.md` for grading rules, company scoping, and the cutoff probe.

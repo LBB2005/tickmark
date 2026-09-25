@@ -330,6 +330,26 @@ appended, so `DANAHER CORP /DE/ (DHR)`. Title-casing them reads better and is a
 transformation this project cannot verify; ambiguity about which registrant is
 being asked costs more than typography.
 
+### Figures the company has since recast
+
+Restatement and post-cutoff-boundary questions both take their gold value from
+a filing later than the period itself, and a later filing may have recast the
+figure after a spin-off or divestiture. Both categories are therefore asked as
+"As most recently reported by X, what was...". Without that phrase, a model
+answering the figure the company originally reported would be scored wrong
+while being defensibly right. That error inflates confident-wrong, the metric
+this benchmark reports.
+
+This was first applied only to restatement. Round-2 verification found that
+**13 of 98 boundary records** carried a recast figure under the bare wording,
+with gaps of 9% to 53% against the as-filed value. Every case was a 2024–26
+separation: GE/Vernova, 3M/Solventum, DuPont/Qnity, Baxter, Fortive/Ralliant,
+BD/Waters, Honeywell/Solstice, AIG, News Corp and WDC. Only 4 of the 13 were in
+the verification sample. The phrase now covers the whole boundary category
+rather than just the 13, because wording that varied with whether a record
+happened to be recast would make the answer readable from the question. Gold
+values were not changed. Details are in `data/verification_round2_report.md`.
+
 ### Segments that cannot be named
 
 Carvana and Elanco tag a bare `ReportableSegmentMember` - the whole member name
@@ -384,13 +404,17 @@ in code, and was committed before `results/` contained anything.
 
 ## Verification
 
-<!-- Human-verified count filled in when the sheet is applied; abstention
-     classification agreement rate on a random 100 at Milestone 4. -->
+<!-- Abstention classification agreement rate on a random 100: still to do
+     (Milestone 4 hand-check). -->
 
-Gold is hashed at `data/GOLD.sha256`. No record is marked `verification: human`
-yet: round 1 is evidence for the sheet, not the sheet. Covenant questions are
-not in the 358 — they are a manual bucket and are deferred so the closed-book
-track can run.
+Gold is hashed at `data/GOLD.sha256`. The 78-row seeded sample was checked by
+a human against the primary filings and all 78 were confirmed, so those
+records are `verification: human`. The other 280 stay `auto` by design: the
+sample is a seeded draw that is never redrawn after results are seen, and it
+checks every false-premise record. Two AI evidence passes (below) came before
+the human pass. Neither marked any record `human`. Covenant questions are not
+in the 358. They are a manual bucket, deferred so the closed-book track could
+run.
 
 Questions are frozen at `data/questions.jsonl` (`data/QUESTIONS.sha256`).
 Broken questions found after this point are excluded and reported, never
@@ -450,3 +474,118 @@ false-premise records changed in consequence.
 The verification sheet was regenerated from the rebuilt set with the same
 fixed seed. 52 of its 78 rows carry round-1 evidence for an unchanged record;
 26 are new or changed and have none.
+
+### Round 2: ten-agent evidence pass
+
+A second AI pass assigned ten agents to separate categories and roles,
+including a skeptic, a red team and a methodologist. They were told to read
+the filing HTML and not `companyfacts`, because gold was built from
+`companyfacts` and checking gold against it would be circular. It confirmed
+the false-premise, restatement, buried and post-cutoff rows, and it found the
+boundary recast problem described under *Question rendering*. Seven of the
+eight row-checking agents missed that problem. The one that caught it was the
+agent told to attack the records rather than confirm them. Eight agents from
+one model are not eight independent checks, and a majority vote would have
+thrown out the only real finding 7–1. The pass also recorded its own failures:
+one agent's evidence cited inline-XBRL context data that its tool could not
+have seen. Those claims are marked as unreliable in
+`data/verification_round2_report.md`, section 5.
+
+Getting the count of recast records right took three methods:
+
+- A text search in the as-filed filing missed WDC. Gold's 4,313 does appear
+  there, but as the HDD segment line, while consolidated revenue was 9,239.
+- A facts check within gold's own concept missed 3M. The recast moved between
+  tags: `Revenues` went from 8,003 to 6,016, while
+  `RevenueFromContractWithCustomer...` only ever held 6,016.
+- Comparing every accession across the interchangeable revenue tags finds
+  both. Four more hits were ignored because the company had filed the same
+  value under two tags.
+
+### Human pass
+
+The 78-row sheet was then checked by a human against the primary filings: 78
+confirmed, none rejected. `scripts/apply_verification.py` marked those 78
+records `verification: human`. The spreadsheet app used for the pass rewrote
+two columns it had not been asked to touch (`3091000000.0` became
+`3091000000`, and ISO dates became `7/21/26`). The apply script reads neither
+column, so gold was unaffected, and both columns were restored before commit.
+
+## Run protocol
+
+**Preflight.** Before any paid call, every pinned slug and price is checked
+against OpenRouter's live catalogue, and the run stops if anything has moved.
+Gemini is a preview endpoint and can change without notice.
+
+**Pilot gate.** A 25-question stratified pilot across all models must show no
+substitutions, at least 95% format compliance for each model, a cost per call
+within 1.5x of the previous run, and the current question wording going out.
+Pilot rows are a gate only and are never merged into results.
+
+**Spend cap.** Every step runs under `--spend-cap`, and the harness stops
+before the next call once the cap is reached.
+
+**Retries.** A transport failure (timeout or dropped connection) is re-sent
+once after the main pass, under the same cap, and both attempts stay in raw
+output. A substitution quarantine, where the resolved model differs from the
+requested one, is never retried: it is a finding about routing, and re-sending
+until the right model answers would hide it. The analysis keeps one row per
+(question, model, sample), preferring the successful attempt, and reports
+`retried` and `still_failed` for each model. Failed calls are never dropped
+without being reported.
+
+**Resuming.** `--resume RUN_ID` re-plans with the same arguments, skips every
+cell that already has an ok row, and appends to the same files. It refuses to
+resume if the run's config hash differs from the current one. A 402 (account
+out of credits) stops a run immediately and is never retried. Run
+`d849113d369c` used this: it stopped at 61% on 2026-09-23 and finished on
+2026-09-25 (UTC) under the same config hash. Every 402 attempt is kept in raw
+output, and none is counted.
+
+**Silent provider changes.** The substitution check compares the resolved
+model and provider with the requested ones, so it cannot see a provider that
+changes behaviour behind an unchanged name. sonar-pro did exactly that between
+2026-09-18 and 2026-09-23: with an identical prompt, it went from abstaining on
+89% of questions to answering from search, and on questions unchanged between
+the two runs its confident-wrong rate went from 4.1% to 42.7%. The five
+closed-book models were stable on those same 260 questions (|z| ≤ 1.4). A
+retrieval reference line is therefore a snapshot of one week, and it is
+reported that way.
+
+**Post-cutoff grading for a retrieval model.** "Must abstain" is the right
+rule for closed-book models, because an answer to a post-cutoff question is
+invented. A search model can find the real figure, and the rule still counts
+it as confident-wrong. The rule is frozen and is not changed after results
+were seen. The report gives sonar-pro's rate on gradable questions alongside
+the frozen figure.
+
+**Confident-wrong at a threshold.** The per-threshold breakdown in
+`summary.json` counts only outcomes where the model committed to an answer
+(`wrong`, `scale_error`, `fabricated`, `leaked_post_cutoff`). An earlier
+version counted any row with `correct: false`, which included false refusals,
+so an abstention at confidence 100 counted as a confident error. Gemini read
+29.2% at ≥90 against a 0.2% headline. At the frozen threshold of 75, the
+breakdown now reproduces the headline exactly, and a test pins that. ECE,
+Brier and confidence AUC still include abstention rows, where the confidence
+value is ambiguous, so they are indicative only.
+
+**Reasoning toggle (spec 7.7): built, not run.** Dropped from this round to
+save cost; the only spend on it was a $0.09 parameter probe. The harness,
+analysis and tests are in place (`--track reasoning_toggle`), and the report
+omits the section when there are no toggle rows. The design below is what a
+later run would use. claude-opus-5 on 60 questions, 12 from each
+category, 3 samples each, with reasoning on versus off. Only the "on" arm is
+called. The "off" arm is the main run's own rows for the same cells, under the
+same config. Run later, the two arms would have different run dates, and that
+would need disclosing. Two further points:
+
+- The "on" arm uses `max_tokens` 4000 and the "off" arm uses 700. Anthropic
+  requires `max_tokens` to exceed the reasoning budget. 700 does not limit the
+  "off" arm: Opus's longest reasoning-off answer in the working run was 226
+  tokens.
+- Opus 5's reasoning is **adaptive**. `reasoning: {enabled: true}` allows it
+  to think but does not force it. A probe question that was plainly past its
+  cutoff produced zero reasoning tokens, while a restatement question produced
+  1,154. "On" therefore means "allowed to reason". Any toggle result
+  should report the share of calls that actually reasoned.
+
