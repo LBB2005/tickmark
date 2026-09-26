@@ -13,6 +13,19 @@ to copy into a model or memo unchecked.
 
 **[Read the report (PDF, 4 pages)](results/Tickmark.pdf)** · [Full technical report](results/REPORT.md) · [Methodology](METHODOLOGY.md)
 
+### By the numbers
+
+| **13,783** | **6.2M** | **6** | **358** | **215** | **50** |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| model calls | tokens processed | models from 5 AI labs | benchmark questions | SEC filings as ground truth | companies |
+
+- **13,783 completed model calls** (6.2 million tokens, about $43 in API spend) across two full benchmark runs and their pilots, all logged call by call.
+- **Six models from five labs:** GPT-5.6 Sol and GPT-5.6 Luna (OpenAI), Claude Opus 5 (Anthropic), Gemini 3.1 Pro (Google), Grok 4.6 (xAI), and sonar-pro (Perplexity) as a web-search reference.
+- **Final run: 6,444 answers graded** (358 questions × 6 models × 3 samples), with every question answered.
+- **Answer key built from SEC data:** 358 questions drawn from 215 10-K and 10-Q filings, using XBRL company facts plus 7,486 segment and geographic facts from 13 monthly SEC data releases.
+- **Checked by hand and by audit:** 78 answer-key records verified against the filings (78/78), after two automated audits, one of them a ten-agent adversarial review.
+- **224 automated tests** covering grading, scoring, the run harness and the analysis.
+
 ---
 
 ## Key findings
